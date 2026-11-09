@@ -1,0 +1,41 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+ENV/
+
+# Conda
+.conda/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Node.js
+node_modules/
+dist/
+.next/
+.nuxt/
+
+# Build and test files
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# IDE and editor
+.vscode/
+.idea/
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
