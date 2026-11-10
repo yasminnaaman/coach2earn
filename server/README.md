@@ -39,7 +39,13 @@ local `.env` file, then apply the schema:
 ```bash
 alembic upgrade head
 alembic current
+python -m app.seed_specialisations
 ```
+
+The idempotent specialisation seeder adds the documented initial game,
+Rocket League (`game`, `rocket-league`). It does not overwrite conflicting
+catalog data and can be safely rerun. Other games mentioned as product examples
+are not seeded until the catalog is confirmed.
 
 Roll back the latest revision with `alembic downgrade -1`; return to an empty
 schema with `alembic downgrade base`. Generate a migration after changing a
@@ -48,9 +54,11 @@ then review the generated migration before applying it. Alembic reads the
 database URL from the same `DATABASE_URL` setting as the application.
 
 The initial migration contains all Phase 2 tables and a PostgreSQL trigger that
-rejects updates and deletes from the points ledger. SQLite tests cover portable
-model constraints and migration upgrade/downgrade behavior; run migrations
-against PostgreSQL before deployment to validate PostgreSQL-specific behavior.
+rejects updates and deletes from the points ledger. A follow-up migration adds
+canonical specialisation checks and equivalent SQLite ledger triggers for
+supplementary tests. SQLite tests cover portable model constraints and
+migration upgrade/downgrade behavior; run migrations against PostgreSQL before
+deployment to validate PostgreSQL-specific behavior.
 
 ## Phase 2 data model
 

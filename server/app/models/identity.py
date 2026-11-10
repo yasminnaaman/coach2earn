@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -19,7 +20,7 @@ from sqlalchemy import (
     Uuid,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.db.base import Base, TimestampMixin
 from app.models.enums import (
@@ -30,6 +31,8 @@ from app.models.enums import (
     VerificationStatus,
 )
 from app.models.types import enum_column
+
+SPECIALISATION_SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 class User(TimestampMixin, Base):
@@ -133,10 +136,38 @@ class Specialisation(TimestampMixin, Base):
     slug: Mapped[str] = mapped_column(String(140), nullable=False, unique=True)
 
     coaches: Mapped[list[CoachSpecialisation]] = relationship(
-        back_populates="specialisation", cascade="all, delete-orphan"
+        back_populates="specialisation", passive_deletes="all"
     )
 
+    @validates("name")
+    def validate_name(self, _key: str, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Specialisation name cannot be blank")
+        if len(normalized) > 120:
+            raise ValueError("Specialisation name cannot exceed 120 characters")
+        return normalized
 
+    @validates("slug")
+    def validate_slug(self, _key: str, value: str) -> str:
+        if not SPECIALISATION_SLUG_PATTERN.fullmatch(value):
+            raise ValueError("Specialisation slug must be lowercase words separated by hyphens")
+        if len(value) > 140:
+            raise ValueError("Specialisation slug cannot exceed 140 characters")
+        return value
+
+    __table_args__ = (
+        CheckConstraint("length(trim(name)) > 0", name="name_nonempty"),
+        CheckConstraint(
+            "slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'",
+            name="slug_format_postgresql",
+        ).ddl_if(dialect="postgresql"),
+        CheckConstraint(
+            "slug <> '' AND slug NOT GLOB '*[^a-z0-9-]*' "
+            "AND slug NOT GLOB '-*' AND slug NOT GLOB '*-' AND slug NOT GLOB '*--*'",
+            name="slug_format_sqlite",
+        ).ddl_if(dialect="sqlite"),
+    )
 class CoachSpecialisation(Base):
     __tablename__ = "coach_specialisations"
 
