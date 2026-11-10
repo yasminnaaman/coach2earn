@@ -31,6 +31,41 @@ The OpenAPI interface is available at `/docs`; the deployment health check is
 `GET /api/v1/health`. It returns HTTP 200 when PostgreSQL responds to `SELECT 1`
 and HTTP 503 when the database is unavailable.
 
+## Authentication
+
+Configure `JWT_SECRET_KEY` in `.env` or the deployment environment. Generate a
+random value with `openssl rand -hex 32`; the application rejects missing,
+short, and obvious placeholder secrets when token operations are requested.
+`ACCESS_TOKEN_EXPIRE_MINUTES` defaults to 30 and accepts values from 1 to 1440.
+The signing algorithm is fixed to HS256. Tokens contain only the user ID and
+standard issue, issuer and expiry claims; current role and account status are
+loaded from PostgreSQL on each authenticated request.
+
+Public registration always creates a player and rejects extra fields such as a
+requested role. Passwords are Argon2 hashed and neither password nor hash is
+returned. `GET /api/v1/auth/me` requires an active bearer token. Reusable
+`require_roles(...)` dependencies protect future module endpoints. Admins can
+approve a player through `POST /api/v1/admin/users/{user_id}/promote-to-coach`;
+the role change, coach profile and approved verification record commit in one
+transaction.
+
+### One-time initial admin bootstrap
+
+The first admin is provisioned by a trusted operator, not through public
+registration. From `server/`, run:
+
+```bash
+python -m app.cli bootstrap-admin
+```
+
+The command requires PostgreSQL, prompts for the email if `--email` is omitted,
+and reads the password twice through hidden terminal prompts. It never accepts a
+password argument or prints password/hash values. A PostgreSQL transaction-level
+advisory lock ensures only one concurrent bootstrap can succeed; the command
+refuses to run if an admin already exists or the email is already registered.
+After bootstrap, admin role assignment remains restricted to trusted operator
+workflows; public registration cannot create admins.
+
 ## Database migrations
 
 From `server/`, configure `DATABASE_URL` in the environment or in the ignored
