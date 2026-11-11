@@ -1,13 +1,4 @@
-"""Passport endpoints: Skills Passport and evidence management.
-
-Mount point (Hope wires this in server/app/main.py or equivalent):
-    from server.passport.router import router as passport_router
-    app.include_router(passport_router, prefix="/api/v1")
-
-Endpoints:
-    GET  /players/{player_id}/passport
-    POST /players/{player_id}/evidence
-"""
+"""Passport endpoints: Skills Passport and evidence management."""
 
 from datetime import datetime, timezone
 from uuid import UUID
@@ -111,17 +102,16 @@ def get_passport(
     The passport is evidence — not a credential. It does not affect the
     Verified badge, which is controlled by a human reviewer only.
     """
-    # TODO: replace with ballchasing.fetch_player_replays(player_id) + DB lookup
+    from .ballchasing import fetch_player_replays
+
+    # Use a fixed demo steam ID — in production this comes from the player's profile
+    demo_steam_id = "demo-steam-001"
+    stats = fetch_player_replays(demo_steam_id)
+
     return PassportResponse(
         player=PlayerSummary(id=str(player_id), name="Demo Player", game="rocket_league"),
         rank="Diamond II",
-        replayStats=ReplayStats(
-            matches=42,
-            goals=87,
-            saves=61,
-            shots=204,
-            boostPerMinute=312.4,
-        ),
+        replayStats=ReplayStats(**stats),
         evidence=[EvidenceItem(**e) for e in _demo_evidence],
         feedback=[
             FeedbackEntry(
