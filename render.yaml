@@ -3,7 +3,7 @@ services:
   - type: web
     name: coach2earn-api
     runtime: python
-    buildCommand: pip install -r requirements.txt && alembic upgrade head && python -m app.seed_specialisations
+    buildCommand: pip install -r requirements.txt && (alembic stamp ab42d18f65c1 8a2cd8f11b42 || true) && alembic upgrade head && python -m app.seed_specialisations
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health
     envVars:
