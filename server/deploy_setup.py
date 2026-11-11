@@ -11,15 +11,20 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from pathlib import Path
 
-from sqlalchemy import create_engine, inspect, text
+# Ensure server/ is on the path regardless of where this script is invoked from.
+SERVER_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(SERVER_DIR))
 
-from app.core.config import get_settings
+from sqlalchemy import create_engine, inspect, text  # noqa: E402
+
+from app.core.config import get_settings  # noqa: E402
 
 
 def run(*cmd: str) -> None:
     print(f"$ {' '.join(cmd)}", flush=True)
-    rc = subprocess.run(list(cmd)).returncode
+    rc = subprocess.run(list(cmd), cwd=str(SERVER_DIR)).returncode
     if rc != 0:
         sys.exit(rc)
 
