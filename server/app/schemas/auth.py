@@ -1,5 +1,7 @@
 """Authentication request and response schemas."""
 
+from __future__ import annotations
+
 from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
