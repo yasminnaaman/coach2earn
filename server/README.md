@@ -41,13 +41,44 @@ The signing algorithm is fixed to HS256. Tokens contain only the user ID and
 standard issue, issuer and expiry claims; current role and account status are
 loaded from PostgreSQL on each authenticated request.
 
-Public registration always creates a player and rejects extra fields such as a
-requested role. Passwords are Argon2 hashed and neither password nor hash is
+Public registration always creates a player account and rejects extra fields
+such as a requested role. Passwords are Argon2 hashed and neither password nor hash is
 returned. `GET /api/v1/auth/me` requires an active bearer token. Reusable
 `require_roles(...)` dependencies protect future module endpoints. Admins can
 approve a player through `POST /api/v1/admin/users/{user_id}/promote-to-coach`;
 the role change, coach profile and approved verification record commit in one
 transaction.
+
+Registration requires a date of birth. Adult players receive a player profile
+at registration. For players under 18, registration stores guardian contact in
+a private consent record with `pending` status and does not create a player
+profile. Such players can authenticate and see the consent status through
+`GET /api/v1/auth/me`, but player-only dependencies deny access until an active
+administrator records a `verified` decision. Administrators review consent at
+`POST /api/v1/admin/users/{user_id}/guardian-consent`, supplying an evidence
+reference; every decision records the reviewer and UTC timestamp. Rejected
+consent can be resubmitted by its account owner using
+`PUT /api/v1/auth/guardian-consent`; the earlier decision remains in the audit
+history. Guardian contact and date of birth are never returned by user APIs.
+Legacy player accounts without a recorded date of birth can set it once via
+`POST /api/v1/auth/age-verification`; affected minors are held from player
+access until consent is verified. Existing profile and history records are
+preserved, but protected player-role dependencies remain unavailable.
+
+Existing coach profiles can have their verification reviewed through
+`POST /api/v1/admin/users/{user_id}/coach-verification` with status
+`approved`, `rejected` or `needs_more_evidence`. Decisions append verification
+records with the reviewer and UTC review time; administrators cannot review
+their own coach profile. Initial coach promotion continues to create an
+approved profile and verification record atomically.
+
+Guardian verification currently represents a manual trusted-administrator
+review against an evidence reference; it does not verify guardian identity or
+consent through an external provider. Product and legal owners must define the
+acceptable evidence, guardian consent language/versioning, retention policy,
+withdrawal workflow and any verification provider before launch. Until then,
+the backend fails closed with pending consent and does not activate a minor's
+player profile.
 
 ### One-time initial admin bootstrap
 

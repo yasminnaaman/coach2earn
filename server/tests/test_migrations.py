@@ -19,6 +19,8 @@ def test_initial_migration_upgrade_and_downgrade(tmp_path: Path) -> None:
         existing_tables = set(inspect(engine).get_table_names())
         expected_tables = {
             "users",
+            "guardian_consents",
+            "guardian_consent_decisions",
             "player_profiles",
             "coach_profiles",
             "coach_qualifications",

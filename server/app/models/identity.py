@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -24,6 +25,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin
 from app.models.enums import (
     AccountStatus,
+    GuardianConsentStatus,
     SpecialisationCategory,
     TeamMemberRole,
     UserRole,
@@ -42,6 +44,7 @@ class User(TimestampMixin, Base):
     account_status: Mapped[AccountStatus] = mapped_column(
         enum_column(AccountStatus, "account_status"), nullable=False, default=AccountStatus.ACTIVE
     )
+    date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     player_profile: Mapped[PlayerProfile | None] = relationship(
         back_populates="user", cascade="all, delete-orphan", uselist=False
@@ -51,8 +54,67 @@ class User(TimestampMixin, Base):
     )
     team_memberships: Mapped[list[TeamMembership]] = relationship(back_populates="user")
     points_transactions: Mapped[list[PointsTransaction]] = relationship(back_populates="user")
+    guardian_consent: Mapped[GuardianConsent | None] = relationship(
+        back_populates="user", cascade="all, delete-orphan", uselist=False
+    )
+
+    @property
+    def guardian_consent_status(self) -> GuardianConsentStatus | None:
+        return self.guardian_consent.status if self.guardian_consent is not None else None
 
     __table_args__ = (Index("uq_users_email_lower", func.lower(email), unique=True),)
+
+
+class GuardianConsent(TimestampMixin, Base):
+    """Private guardian contact and current consent state for a minor player."""
+
+    __tablename__ = "guardian_consents"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    guardian_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    guardian_email: Mapped[str] = mapped_column(String(320), nullable=False)
+    status: Mapped[GuardianConsentStatus] = mapped_column(
+        enum_column(GuardianConsentStatus, "guardian_consent_status"),
+        nullable=False,
+        default=GuardianConsentStatus.PENDING,
+    )
+    consent_version: Mapped[str] = mapped_column(String(40), nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="guardian_consent")
+    decisions: Mapped[list[GuardianConsentDecision]] = relationship(
+        back_populates="consent", cascade="all, delete-orphan", order_by="GuardianConsentDecision.reviewed_at"
+    )
+
+
+class GuardianConsentDecision(Base):
+    """Append-only administrative audit record for each consent review."""
+
+    __tablename__ = "guardian_consent_decisions"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    consent_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("guardian_consents.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[GuardianConsentStatus] = mapped_column(
+        enum_column(GuardianConsentStatus, "guardian_consent_decision_status"), nullable=False
+    )
+    reviewer_user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    evidence_reference: Mapped[str] = mapped_column(String(2048), nullable=False)
+    review_notes: Mapped[str | None] = mapped_column(Text)
+
+    consent: Mapped[GuardianConsent] = relationship(back_populates="decisions")
+    reviewer: Mapped[User] = relationship(foreign_keys=[reviewer_user_id])
+
+    __table_args__ = (
+        Index("ix_guardian_consent_decisions_consent_id", "consent_id"),
+        Index("ix_guardian_consent_decisions_reviewer_user_id", "reviewer_user_id"),
+    )
 
 
 class PlayerProfile(TimestampMixin, Base):

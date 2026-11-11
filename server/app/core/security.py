@@ -17,8 +17,9 @@ from pwdlib.exceptions import UnknownHashError
 
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models.enums import AccountStatus, UserRole
+from app.models.enums import AccountStatus, GuardianConsentStatus, UserRole
 from app.models.identity import User
+from app.schemas.auth import is_under_18
 
 JWT_ALGORITHM = "HS256"
 _password_hash = PasswordHash.recommended()
@@ -143,6 +144,21 @@ def require_roles(*allowed_roles: UserRole) -> Callable:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions",
             )
+        if current_user.role == UserRole.PLAYER:
+            if current_user.date_of_birth is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Date of birth must be recorded before player access is enabled",
+                )
+            if is_under_18(current_user.date_of_birth) and (
+                current_user.guardian_consent is None
+                or current_user.guardian_consent.status != GuardianConsentStatus.VERIFIED
+                or current_user.player_profile is None
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Verified guardian consent is required for player access",
+                )
         return current_user
 
     return role_dependency
