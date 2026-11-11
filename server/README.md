@@ -27,6 +27,17 @@ Start the API from the `server` directory:
 uvicorn app.main:app --reload
 ```
 
+To start it from the repository root, add `server` to Uvicorn's application
+search path:
+
+```bash
+uvicorn --app-dir server --env-file server/.env app.main:app --reload
+```
+
+This keeps the backend's `app`, `ai` and `passport` imports consistent. Running
+`uvicorn server.app.main:app` from the repository root is not supported because
+backend modules import one another through the top-level `app` package.
+
 The OpenAPI interface is available at `/docs`; the deployment health check is
 `GET /api/v1/health`. It returns HTTP 200 when PostgreSQL responds to `SELECT 1`
 and HTTP 503 when the database is unavailable.
@@ -179,3 +190,215 @@ Use `uvicorn app.main:app --host 0.0.0.0 --port $PORT` as the web service start
 command and configure `DATABASE_URL` as a secret environment variable. Render's
 health check path should be `/api/v1/health`. Apply migrations with
 `alembic upgrade head` as a release/deploy command.
+
+## Phase 5 packages and orders
+
+Authenticated package discovery is public at `GET /api/v1/packages` and
+`GET /api/v1/packages/{package_id}`. Coaches manage their packages at
+`POST /api/v1/coaches/me/packages` and `PUT /api/v1/coaches/me/packages/{id}`.
+
+Players create a 15-minute price snapshot at `POST /api/v1/quotations`, then
+accept it at `POST /api/v1/orders` which creates an immutable order record. The
+order includes a stable public reference (`C2E-<16 hex chars>`). Orders are
+listed at `GET /api/v1/orders` and retrieved individually at
+`GET /api/v1/orders/{id}`. Players see their own orders; coaches see orders
+linked to their profile; admins see all.
+
+Order creation generates `status: pending_payment`. Payment confirmation (status
+transition to `confirmed`) is handled by the payment integration owner; clients
+cannot self-promote an order to `confirmed` status.
+
+## Phase 6 bookings and scheduling
+
+### Coach availability
+
+Coaches publish recurring or one-off availability windows:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/coaches/me/availability` | Create an availability window |
+| `PUT` | `/api/v1/coaches/me/availability/{id}` | Update an availability window |
+| `DELETE` | `/api/v1/coaches/me/availability/{id}` | Soft-delete an availability window |
+| `GET` | `/api/v1/coaches/{coach_profile_id}/availability` | List a coach's active windows |
+| `GET` | `/api/v1/coaches/{coach_profile_id}/slots` | Enumerate open slots (query: `from_dt`, `to_dt`) |
+
+A window is either **recurring** (`weekday`: 1=Mon … 7=Sun) or **one-off**
+(`specific_date`). Exactly one must be provided. `starts_at_utc` and
+`ends_at_utc` are HH:MM UTC strings. The maximum slot query range is 60 days.
+
+### Booking management
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/bookings` | Create a booking for a confirmed order |
+| `GET` | `/api/v1/bookings` | List the authenticated user's bookings |
+| `GET` | `/api/v1/bookings/{id}` | Retrieve a booking |
+| `PATCH` | `/api/v1/bookings/{id}/status` | Transition: `confirmed` → `completed` / `cancelled` |
+| `PATCH` | `/api/v1/bookings/{id}/sessions/{sid}/status` | Transition session status |
+
+**Booking rules:**
+- A booking can only be created for an order with status `confirmed` (paid).
+- One booking per order (enforced at DB level).
+- Overlapping session times are rejected.
+- State transitions follow a strict directed graph: `pending → confirmed → completed`.
+- Cancellation is allowed from `pending` or `confirmed`.
+
+**Booking status graph:**
+```
+pending → confirmed → completed
+pending → cancelled
+confirmed → cancelled
+```
+
+**Session status graph:**
+```
+scheduled → confirmed → completed
+scheduled → cancelled
+confirmed → cancelled
+```
+
+### Scheduling integrity
+
+- Concurrent booking requests for the same coach/time slot are protected by
+  `SELECT … FOR UPDATE` row-level locking on PostgreSQL.
+- Cancelled sessions are excluded from overlap checks so rescheduling is possible.
+- Double-booking at DB level is prevented by the unique constraint on `(order_id)`.
+
+## CORS configuration
+
+The `CORS_ORIGINS` environment variable accepts a comma-separated list of
+allowed frontend origins. The application defaults to
+`http://localhost:5173,http://localhost:3000` for local development. For
+production, set it to the deployed frontend URL:
+
+```
+CORS_ORIGINS=https://your-frontend.onrender.com
+```
+
+## Frontend integration
+
+The frontend must send `Authorization: Bearer <token>` on all authenticated
+requests. Tokens are obtained from `POST /api/v1/auth/login` and expire in
+`ACCESS_TOKEN_EXPIRE_MINUTES` minutes (default 30). Use the `expires_in` field
+in the token response to manage refresh timing.
+
+Logout is client-side only: discard the stored token. The backend does not
+maintain a token revocation list.
+
+### Coach listing response structure
+
+`GET /api/v1/coaches` returns:
+
+```json
+{
+  "id": "uuid",
+  "professional_bio": "string",
+  "coaching_goals": "string | null",
+  "experience_years": 0,
+  "verified": true,
+  "specialisations": [{"id": "uuid", "category": "game", "name": "string", "slug": "string"}],
+  "packages": [{"title": "string", "price_per_session": "12.50", "currency": "USD", "session_limit": 5}]
+}
+```
+
+**Outstanding external dependencies (AI/matching owner — Yasmin):**
+- `endorsementCount` — not currently persisted in the backend schema. The backend
+  exposes no endorsement table. The AI/matching owner must define the data source,
+  supply the API contract and implement storage before this field can be served.
+- `score` / `reason` — AI ranking and recommendation reasoning. Owned by the
+  AI/matching team. The backend will add a computed or stored field once the
+  contract is confirmed.
+
+**Do not invent these values on the frontend.** Omit them until the owning team
+delivers the agreed data source.
+
+## Payment integration contract
+
+PayPal integration is owned by a separate teammate. The backend exposes:
+
+- Orders are created with `status: pending_payment`.
+- The payment callback or webhook must transition the order to `status: confirmed`
+  by calling a trusted server-side payment verification flow.
+- **Clients must never be allowed to set order status directly.**
+- Booking creation is blocked until `status: confirmed` to prevent booking
+  without payment.
+
+**Outstanding dependencies (payment integration owner):**
+1. Implement the PayPal webhook endpoint that verifies the payment and updates
+   order status to `confirmed`.
+2. Ensure the webhook validates the PayPal signature before updating state.
+3. Do not add another payment provider.
+
+## Required environment variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection URL |
+| `JWT_SECRET_KEY` | Yes | Random 32+ byte hex secret (`openssl rand -hex 32`) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No | Token TTL in minutes (default: 30, max: 1440) |
+| `JWT_ISSUER` | No | JWT issuer claim (default: `coach2earn`) |
+| `CORS_ORIGINS` | No | Comma-separated frontend origins (default: localhost dev ports) |
+
+## PostgreSQL setup
+
+```bash
+createdb coach2earn
+cd server
+alembic upgrade head   # applies all migrations
+python -m app.seed_specialisations
+```
+
+### PostgreSQL verification tests
+
+Set `TEST_DATABASE_URL` to a disposable PostgreSQL database and run:
+
+```bash
+TEST_DATABASE_URL=postgresql+psycopg://user:pass@localhost/coach2earn_test \
+  python -m pytest tests/ -v
+```
+
+This activates the PostgreSQL-only test markers that verify:
+- Case-insensitive email uniqueness via expression-based index
+- `order_reference` unique constraint
+- `coach_availability` table existence and type-exclusivity constraint
+- Concurrent booking protection via row-level locking
+
+The `uq_users_email_lower` index is expression-based and SQLite does not support
+it; the SQLite test suite emits a reflection warning but still enforces the
+constraint through the ORM validator.
+
+## Render deployment
+
+### Service configuration
+
+| Setting | Value |
+|---------|-------|
+| Build command | `pip install -r requirements.txt` |
+| Start command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Deploy/release command | `alembic upgrade head` |
+| Health check path | `/api/v1/health` |
+
+### Required secret environment variables on Render
+
+```
+DATABASE_URL=<Render PostgreSQL internal URL>
+JWT_SECRET_KEY=<openssl rand -hex 32>
+CORS_ORIGINS=https://<your-frontend-service>.onrender.com
+```
+
+### Frontend environment variable
+
+Set in the frontend's Render environment or `.env.production`:
+
+```
+VITE_API_URL=https://<your-backend-service>.onrender.com
+```
+
+The frontend API client must read `import.meta.env.VITE_API_URL` and must not
+target `localhost` in production builds. Verify no production code contains
+hardcoded `localhost` URLs.
+
+**Deployment status: NOT YET VERIFIED.** The backend has not been confirmed
+deployed to Render in this environment. The configuration above is complete and
+correct; the deployment owner must apply it and verify the live URL.
+
