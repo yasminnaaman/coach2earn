@@ -28,16 +28,18 @@ def _bootstrap_admin(email_argument: str | None) -> int:
         print("Run admin bootstrap from an interactive terminal to keep password input hidden.", file=sys.stderr)
         return 2
 
-    email = email_argument or input("Initial admin email: ").strip()
-    password = getpass("Initial admin password (input hidden): ")
-    confirmation = getpass("Confirm password (input hidden): ")
-    if password != confirmation:
-        print("Passwords do not match.", file=sys.stderr)
-        return 2
-
     try:
+        email = email_argument or input("Initial admin email: ").strip()
+        password = getpass("Initial admin password (input hidden): ")
+        confirmation = getpass("Confirm password (input hidden): ")
+        if password != confirmation:
+            print("Passwords do not match.", file=sys.stderr)
+            return 2
         with SessionLocal() as db:
             bootstrap_admin(db, email, password)
+    except KeyboardInterrupt:
+        print("Admin bootstrap cancelled.", file=sys.stderr)
+        return 130
     except AccountWorkflowError as exc:
         print(str(exc), file=sys.stderr)
         return 1

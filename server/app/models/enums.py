@@ -15,6 +15,12 @@ class AccountStatus(StrEnum):
     DEACTIVATED = "deactivated"
 
 
+class GuardianConsentStatus(StrEnum):
+    PENDING = "pending"
+    VERIFIED = "verified"
+    REJECTED = "rejected"
+
+
 class VerificationStatus(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
