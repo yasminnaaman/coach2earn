@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -14,6 +15,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     JSON,
+    Numeric,
     SmallInteger,
     String,
     Text,
@@ -128,12 +130,36 @@ class PlayerProfile(TimestampMixin, Base):
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
     )
     skill_level: Mapped[str | None] = mapped_column(String(80))
+    gaming_experience_years: Mapped[int | None] = mapped_column(SmallInteger)
     interests: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     coaching_requirements: Mapped[str | None] = mapped_column(Text)
     training_goals: Mapped[str | None] = mapped_column(Text)
+    budget_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    budget_currency: Mapped[str | None] = mapped_column(String(3))
 
     user: Mapped[User] = relationship(back_populates="player_profile")
     quotations: Mapped[list[Quotation]] = relationship(back_populates="player_profile")
+    games: Mapped[list[PlayerGame]] = relationship(
+        back_populates="player_profile", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "gaming_experience_years IS NULL OR gaming_experience_years >= 0",
+            name="gaming_experience_nonnegative",
+        ),
+        CheckConstraint(
+            "budget_amount IS NULL OR budget_amount >= 0", name="budget_nonnegative"
+        ),
+        CheckConstraint(
+            "(budget_amount IS NULL) = (budget_currency IS NULL)",
+            name="budget_currency_pair",
+        ),
+        CheckConstraint(
+            "budget_currency IS NULL OR length(budget_currency) = 3",
+            name="budget_currency_iso_length",
+        ),
+    )
 
 
 class CoachProfile(TimestampMixin, Base):
@@ -144,6 +170,7 @@ class CoachProfile(TimestampMixin, Base):
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
     )
     professional_bio: Mapped[str | None] = mapped_column(Text)
+    coaching_goals: Mapped[str | None] = mapped_column(Text)
     experience_years: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     availability: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     verification_status: Mapped[VerificationStatus] = mapped_column(
@@ -183,8 +210,68 @@ class CoachQualification(TimestampMixin, Base):
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     evidence_url: Mapped[str | None] = mapped_column(String(2048))
+    verification_status: Mapped[VerificationStatus] = mapped_column(
+        enum_column(VerificationStatus, "qualification_verification_status"),
+        nullable=False,
+        default=VerificationStatus.PENDING,
+    )
 
     coach_profile: Mapped[CoachProfile] = relationship(back_populates="qualifications")
+    reviews: Mapped[list[CoachQualificationReview]] = relationship(
+        back_populates="qualification",
+        cascade="all, delete-orphan",
+        order_by="CoachQualificationReview.reviewed_at",
+    )
+
+
+class CoachQualificationReview(Base):
+    """Append-only review decision history for submitted qualification evidence."""
+
+    __tablename__ = "coach_qualification_reviews"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    qualification_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("coach_qualifications.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    status: Mapped[VerificationStatus] = mapped_column(
+        enum_column(VerificationStatus, "qualification_review_status"), nullable=False
+    )
+    reviewer_user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    review_notes: Mapped[str | None] = mapped_column(Text)
+
+    qualification: Mapped[CoachQualification] = relationship(back_populates="reviews")
+    reviewer: Mapped[User] = relationship(foreign_keys=[reviewer_user_id])
+
+    __table_args__ = (
+        Index("ix_coach_qualification_reviews_qualification", "qualification_id", "reviewed_at"),
+        Index("ix_coach_qualification_reviews_reviewer", "reviewer_user_id"),
+    )
+
+
+class PlayerGame(Base):
+    """Catalog-backed game preferences for a player."""
+
+    __tablename__ = "player_games"
+
+    player_profile_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("player_profiles.id", ondelete="CASCADE"), primary_key=True
+    )
+    specialisation_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("specialisations.id", ondelete="RESTRICT"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    player_profile: Mapped[PlayerProfile] = relationship(back_populates="games")
+    specialisation: Mapped[Specialisation] = relationship()
 
 
 class Specialisation(TimestampMixin, Base):

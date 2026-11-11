@@ -144,6 +144,35 @@ deployment to validate PostgreSQL-specific behavior.
   never duplicates an earning. These tables only record financial state; they
   do not initiate or process payments.
 
+## Phase 4 profile API
+
+Authenticated profile routes use the Phase 3 bearer-token authentication and
+derive the owner from the token. They do not accept user IDs in profile request
+bodies. Player routes are `/api/v1/profiles/player`; coach routes are
+`/api/v1/profiles/coach`. Both support `POST` for profile creation, `GET` for
+the authenticated profile and `PATCH` for updates. Profile creation returns
+`409` when registration or coach promotion already created that profile.
+
+Player game preferences and coach specialisations reference the seeded
+`specialisations` table. Coach discovery is public at `/api/v1/coaches` and
+`/api/v1/coaches/{coach_profile_id}`. Results require an active coach account,
+an approved coach profile, a non-empty biography, at least one game
+specialisation and at least one active package. Filters include
+`specialisation_id`, `experience_years_min`, free-text `goal`,
+`budget_amount`/`budget_currency`, `offset` and `limit`. Budget matching uses
+the package total divided by its session limit, compares only the stated
+currency, and performs no exchange-rate conversion.
+
+Coaches submit private qualification evidence at
+`/api/v1/profiles/coach/qualifications`; only the owning coach and admins can
+read it. Admins review pending submissions through
+`/api/v1/admin/qualifications` and
+`/api/v1/admin/qualifications/{qualification_id}/review`. Each decision stores
+reviewer identity, timestamp, status and notes. Public coach responses omit
+qualification details, credential references and evidence URLs. Existing
+coach verification decisions remain on the Phase 3
+`/api/v1/admin/users/{user_id}/coach-verification` route.
+
 ## Render start command
 
 Use `uvicorn app.main:app --host 0.0.0.0 --port $PORT` as the web service start

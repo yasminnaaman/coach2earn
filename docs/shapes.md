@@ -302,9 +302,12 @@ Submits a coach's evidence links for AI-organised review. Returns a structured s
 
 ---
 
-## Demo auth header
+## Authentication
 
-All endpoints read the header `X-Demo-User` to identify the persona. No real login is needed for the demo.
+The `X-Demo-User` table below describes the original demo personas. The current
+backend uses Phase 3 bearer authentication for protected endpoints:
+`Authorization: Bearer <access_token>`. The API derives the acting user and role
+from the signed token and database record. Coach discovery is public.
 
 | Value | Persona |
 |-------|---------|
@@ -312,3 +315,33 @@ All endpoints read the header `X-Demo-User` to identify the persona. No real log
 | `coach` | Coach viewing their dashboard |
 | `team_admin` | Team admin booking and confirming sessions |
 | `reviewer` | Human reviewer on the verification queue |
+
+---
+
+## Phase 4 profile endpoints
+
+Profile routes are scoped to the authenticated owner; request payloads cannot
+select a `user_id` or change role or verification fields.
+
+| Method | Path | Access | Purpose |
+|--------|------|--------|---------|
+| `POST` | `/api/v1/profiles/player` | Player | Create the player's profile |
+| `GET` | `/api/v1/profiles/player` | Player | Read the authenticated player's profile |
+| `PATCH` | `/api/v1/profiles/player` | Player | Update skill, interests, goals, budget and catalog-backed games |
+| `POST` | `/api/v1/profiles/coach` | Coach | Create the coach's profile with catalog-backed specialisations |
+| `GET` | `/api/v1/profiles/coach` | Coach | Read the coach's profile and own verification status |
+| `PATCH` | `/api/v1/profiles/coach` | Coach | Update biography, experience, coaching goals, availability and specialisations |
+| `POST` | `/api/v1/profiles/coach/qualifications` | Coach | Submit private qualification details and evidence |
+| `GET` | `/api/v1/profiles/coach/qualifications` | Coach | Read the authenticated coach's own submissions |
+| `GET` | `/api/v1/admin/qualifications` | Admin | Read the qualification review queue |
+| `POST` | `/api/v1/admin/qualifications/{id}/review` | Admin | Record an approval, rejection or request for more evidence |
+| `GET` | `/api/v1/coaches` | Public | Discover eligible coaches with filters and pagination |
+| `GET` | `/api/v1/coaches/{coach_profile_id}` | Public | Read an eligible public coach profile |
+
+Coach discovery query filters are `specialisation_id`, `experience_years_min`,
+`goal`, `budget_amount`, and `budget_currency`; pagination uses `offset` and
+`limit`. Budget comparisons use active package price per session in the
+requested currency. Discovery returns only active coaches with approved
+verification, a non-empty biography, at least one game specialisation and an
+active package. Public responses omit qualification evidence and credential
+references.

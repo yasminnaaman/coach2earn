@@ -19,6 +19,9 @@ def test_initial_migration_upgrade_and_downgrade(tmp_path: Path) -> None:
     command.upgrade(config, "6f7ec5e69cea")
     engine = create_engine(f"sqlite:///{database_path}")
     seeded_id = str(uuid4())
+    player_user_id, player_profile_id = str(uuid4()), str(uuid4())
+    coach_user_id, coach_profile_id = str(uuid4()), str(uuid4())
+    qualification_id = str(uuid4())
     try:
         with engine.begin() as connection:
             connection.execute(
@@ -27,6 +30,42 @@ def test_initial_migration_upgrade_and_downgrade(tmp_path: Path) -> None:
                     "VALUES (:id, 'game', 'Rocket League', 'rocket-league')"
                 ),
                 {"id": seeded_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO users (id, email, password_hash, role, account_status) "
+                    "VALUES (:id, 'migration-player@example.test', 'hash', 'player', 'active')"
+                ),
+                {"id": player_user_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO player_profiles (id, user_id, interests) "
+                    "VALUES (:id, :user_id, '[]')"
+                ),
+                {"id": player_profile_id, "user_id": player_user_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO users (id, email, password_hash, role, account_status) "
+                    "VALUES (:id, 'migration-coach@example.test', 'hash', 'coach', 'active')"
+                ),
+                {"id": coach_user_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO coach_profiles "
+                    "(id, user_id, experience_years, availability, verification_status) "
+                    "VALUES (:id, :user_id, 2, '{}', 'pending')"
+                ),
+                {"id": coach_profile_id, "user_id": coach_user_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO coach_qualifications (id, coach_profile_id, title) "
+                    "VALUES (:id, :profile_id, 'Existing qualification')"
+                ),
+                {"id": qualification_id, "profile_id": coach_profile_id},
             )
     finally:
         engine.dispose()
@@ -42,7 +81,9 @@ def test_initial_migration_upgrade_and_downgrade(tmp_path: Path) -> None:
             "player_profiles",
             "coach_profiles",
             "coach_qualifications",
+            "coach_qualification_reviews",
             "coach_specialisations",
+            "player_games",
             "specialisations",
             "coach_verifications",
             "teams",
@@ -67,6 +108,14 @@ def test_initial_migration_upgrade_and_downgrade(tmp_path: Path) -> None:
             assert connection.execute(
                 text("SELECT id FROM specialisations WHERE slug = 'rocket-league'")
             ).scalar_one() == seeded_id
+            assert connection.execute(
+                text("SELECT gaming_experience_years FROM player_profiles WHERE id = :id"),
+                {"id": player_profile_id},
+            ).scalar_one() is None
+            assert connection.execute(
+                text("SELECT verification_status FROM coach_qualifications WHERE id = :id"),
+                {"id": qualification_id},
+            ).scalar_one() == "pending"
         with engine.connect() as connection:
             index_sql = connection.execute(
                 text("SELECT sql FROM sqlite_master WHERE type='index' AND name='uq_users_email_lower'")
@@ -93,6 +142,16 @@ def test_initial_migration_upgrade_and_downgrade(tmp_path: Path) -> None:
                 ),
                 {"id": user_id},
             )
+        with engine.begin() as connection:
+            with pytest.raises(IntegrityError):
+                connection.execute(
+                    text(
+                        "INSERT INTO users (id, email, password_hash, role, account_status) "
+                        "VALUES (:id, 'LEDGER@example.test', 'hash', 'player', 'active')"
+                    ),
+                    {"id": str(uuid4())},
+                )
+        with engine.begin() as connection:
             connection.execute(
                 text(
                     "INSERT INTO points_transactions "
