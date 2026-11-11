@@ -1,6 +1,6 @@
 """Import all mapped models so SQLAlchemy and Alembic share complete metadata."""
 
-from app.models.commerce import Booking, CoachingPackage, CoachingSession, Order, Quotation
+from app.models.commerce import Booking, CoachAvailability, CoachingPackage, CoachingSession, Order, Quotation
 from app.models.finance import CoachEarning, PayoutAllocation, PayoutRecord
 from app.models.identity import (
     CoachProfile,
@@ -22,6 +22,7 @@ from app.models.rewards import Bonus, PointsTransaction, Prize, Reward, RewardRe
 __all__ = [
     "Booking",
     "Bonus",
+    "CoachAvailability",
     "CoachEarning",
     "CoachProfile",
     "CoachQualification",
