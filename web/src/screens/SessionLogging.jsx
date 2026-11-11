@@ -67,14 +67,14 @@ export default function SessionLogging() {
             {session.status === 'Scheduled' && (
               <button disabled={loading}
                 onClick={() => run(() => startSession(session.id), 'started')}
-                className="rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
+                className="rounded-lg bg-sky-600 py-2.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60">
                 Start session
               </button>
             )}
             {session.status === 'started' && (
               <button disabled={loading}
                 onClick={() => run(() => endSession(session.id), 'ended')}
-                className="rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
+                className="rounded-lg bg-sky-600 py-2.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60">
                 End session
               </button>
             )}
@@ -84,10 +84,10 @@ export default function SessionLogging() {
                 <input type="number" min="0" max="8" step="0.5" value={proposedHours}
                   onChange={(e) => setProposedHours(e.target.value)}
                   placeholder="e.g. 1.0"
-                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300" />
                 <button disabled={loading || !proposedHours}
                   onClick={() => run(() => Promise.resolve(), 'Pending')}
-                  className="rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
+                  className="rounded-lg bg-sky-600 py-2.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60">
                   Submit hours
                 </button>
               </div>

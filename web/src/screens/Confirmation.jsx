@@ -23,7 +23,7 @@ function generateIcs(sessions) {
         'BEGIN:VEVENT',
         `DTSTART:${fmt(start)}`,
         `DTEND:${fmt(end)}`,
-        `SUMMARY:Coach2Earn — ${s.label || 'Coaching session'}`,
+        `SUMMARY:SightCoach — ${s.label || 'Coaching session'}`,
         `DESCRIPTION:Coaching session with Coach Dani K.`,
         'END:VEVENT',
       ].join('\r\n')
@@ -33,7 +33,7 @@ function generateIcs(sessions) {
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Coach2Earn//EN',
+    'PRODID:-//SightCoach//EN',
     events,
     'END:VCALENDAR',
   ].join('\r\n')
@@ -74,12 +74,12 @@ function ScheduleModal({ sessions, onClose }) {
               </label>
               <input type="date" value={dates[s.id] || ''}
                 onChange={(e) => setDates((d) => ({ ...d, [s.id]: e.target.value }))}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300" />
             </div>
           ))}
           <div className="mt-2 flex gap-3">
             <button type="submit" disabled={saving}
-              className="flex-1 rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
+              className="flex-1 rounded-lg bg-sky-600 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60">
               {saving ? 'Saving…' : 'Save schedule'}
             </button>
             <button type="button" onClick={onClose}
@@ -114,7 +114,7 @@ export default function Confirmation() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'coach2earn-sessions.ics'
+    a.download = 'SightCoach-sessions.ics'
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -144,7 +144,7 @@ export default function Confirmation() {
             {receipt.bookedSessions.map((s) => (
               <li key={s.id} className="flex items-center gap-3">
                 <div className={`flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg border text-xs font-medium
-                  ${s.startsAt ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-gray-200 bg-gray-50 text-gray-400'}`}>
+                  ${s.startsAt ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-gray-200 bg-gray-50 text-gray-400'}`}>
                   {s.startsAt ? (
                     <>
                       <span>{new Date(s.startsAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
@@ -165,7 +165,7 @@ export default function Confirmation() {
             </button>
             {unscheduled.length > 0 && (
               <button onClick={() => setShowModal(true)}
-                className="flex-1 rounded-lg border border-indigo-200 py-2 text-sm text-indigo-600 hover:bg-indigo-50">
+                className="flex-1 rounded-lg border border-sky-200 py-2 text-sm text-sky-600 hover:bg-sky-50">
                 Schedule rest
               </button>
             )}

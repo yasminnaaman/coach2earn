@@ -78,31 +78,31 @@ export default function Discover() {
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">Game</label>
             <select value={filters.game} onChange={set('game')}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300">
               {GAMES.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
             </select>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">Role</label>
             <select value={filters.role} onChange={set('role')}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300">
               {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">Max budget (USD/session)</label>
             <input type="number" value={filters.budgetUsd} onChange={set('budgetUsd')} placeholder="e.g. 50"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300" />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">Goal</label>
             <input type="text" value={filters.goal} onChange={set('goal')} placeholder="e.g. improve rotations"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300" />
           </div>
         </div>
         <div className="mt-4 flex justify-end">
           <button type="submit"
-            className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            className="rounded-lg bg-sky-600 px-5 py-2 text-sm font-medium text-white hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-300">
             Find coaches
           </button>
         </div>

@@ -56,7 +56,7 @@ export default function SkillsPassport() {
       <div>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold text-gray-900">{player.name}</h1>
-          <span className="rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-700">{rank}</span>
+          <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-medium text-sky-700">{rank}</span>
         </div>
         <p className="text-sm text-gray-500">{player.game?.replace('_', ' ')}</p>
       </div>
@@ -93,7 +93,7 @@ export default function SkillsPassport() {
                 </span>
                 <div className="min-w-0">
                   <a href={ev.url} target="_blank" rel="noopener noreferrer"
-                    className="break-all text-sm text-indigo-600 hover:underline">{ev.url}</a>
+                    className="break-all text-sm text-sky-600 hover:underline">{ev.url}</a>
                   <p className="text-xs text-gray-400">{new Date(ev.addedAt).toLocaleDateString()}</p>
                 </div>
               </li>
@@ -108,7 +108,7 @@ export default function SkillsPassport() {
           <div className="flex gap-2">
             <select value={evidenceForm.type}
               onChange={(e) => setEvidenceForm((f) => ({ ...f, type: e.target.value }))}
-              className="rounded-lg border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+              className="rounded-lg border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300">
               {EVIDENCE_TYPES.map((t) => (
                 <option key={t} value={t}>{TYPE_LABELS[t]}</option>
               ))}
@@ -116,9 +116,9 @@ export default function SkillsPassport() {
             <input type="url" value={evidenceForm.url} required
               onChange={(e) => setEvidenceForm((f) => ({ ...f, url: e.target.value }))}
               placeholder="https://..."
-              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300" />
             <button type="submit" disabled={addingEvidence}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
+              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60">
               {addingEvidence ? '…' : 'Add'}
             </button>
           </div>
@@ -141,7 +141,7 @@ export default function SkillsPassport() {
                   {[
                     { label: 'Strengths', items: fb.strengths, colour: 'text-green-700' },
                     { label: 'Focus areas', items: fb.focusAreas, colour: 'text-amber-700' },
-                    { label: 'Next goals', items: fb.nextGoals, colour: 'text-indigo-700' },
+                    { label: 'Next goals', items: fb.nextGoals, colour: 'text-sky-700' },
                   ].map(({ label, items, colour }) => (
                     <div key={label}>
                       <p className={`mb-1 text-xs font-medium uppercase tracking-wide ${colour}`}>{label}</p>

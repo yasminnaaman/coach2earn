@@ -118,7 +118,7 @@ export default function ReviewQueue() {
                       {sub.sources.map((s, i) => (
                         <li key={i} className="text-sm">
                           <a href={s.url} target="_blank" rel="noopener noreferrer"
-                            className="text-indigo-600 hover:underline">{s.url}</a>
+                            className="text-sky-600 hover:underline">{s.url}</a>
                           {s.description && <span className="ml-2 text-gray-500">— {s.description}</span>}
                         </li>
                       ))}

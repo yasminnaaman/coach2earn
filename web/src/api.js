@@ -1,30 +1,79 @@
 // src/api.js — the ONLY file that talks to the backend.
 // When VITE_USE_MOCK=true (default) every function returns shaped seed data.
-// When false it calls VITE_API_URL with the X-Demo-User header.
+// When false it calls VITE_API_URL with real JWT auth against Hope's FastAPI backend.
 
 import * as seed from './mock/seed.js'
+import { getToken, setToken, setUser, clearAuth } from './auth.js'
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// Hope's backend mounts all routes under /api/v1
+const API = `${BASE_URL}/api/v1`
 
-function getPersona() {
-  return localStorage.getItem('c2e_persona') || 'gamer'
-}
-
-async function request(method, path, body) {
-  const res = await fetch(`${BASE_URL}${path}`, {
+async function request(method, path, body, { auth = true } = {}) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (auth) {
+    const token = getToken()
+    if (token) headers['Authorization'] = `Bearer ${token}`
+  }
+  const res = await fetch(`${API}${path}`, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Demo-User': getPersona(),
-    },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || `Request failed: ${res.status}`)
+    let detail = `Request failed: ${res.status}`
+    try {
+      const json = await res.json()
+      detail = json?.detail || JSON.stringify(json) || detail
+    } catch {
+      detail = (await res.text()) || detail
+    }
+    throw new Error(detail)
   }
+  // 204 No Content — return null
+  if (res.status === 204) return null
   return res.json()
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+export async function register(body) {
+  // body: { email, password, date_of_birth, guardian_name?, guardian_email? }
+  if (USE_MOCK) {
+    await delay()
+    return { id: 'mock-user-001', email: body.email, role: 'PLAYER', account_status: 'ACTIVE' }
+  }
+  return request('POST', '/auth/register', body, { auth: false })
+}
+
+export async function login(body) {
+  // body: { email, password }
+  if (USE_MOCK) {
+    await delay()
+    const mockUser = { id: 'mock-user-001', email: body.email, role: 'PLAYER', account_status: 'ACTIVE' }
+    setToken('mock-token')
+    setUser(mockUser)
+    return mockUser
+  }
+  const token = await request('POST', '/auth/login', body, { auth: false })
+  setToken(token.access_token)
+  // Fetch the real user profile immediately after login
+  const user = await request('GET', '/auth/me')
+  setUser(user)
+  return user
+}
+
+export async function logout() {
+  clearAuth()
+}
+
+export async function getCurrentUser() {
+  if (USE_MOCK) {
+    await delay(100)
+    return { id: 'mock-user-001', email: 'demo@SightCoach.com', role: 'PLAYER', account_status: 'ACTIVE' }
+  }
+  return request('GET', '/auth/me')
 }
 
 // Simulate async delay in mock mode so loading states are visible
@@ -57,7 +106,7 @@ export async function matchCoaches(body) {
       .filter((c) => !body.budgetUsd || c.priceUsd <= body.budgetUsd)
       .sort((a, b) => b.score - a.score)
   }
-  return request('POST', '/match', body)
+  return request('POST', '/ai/match', body)
 }
 
 export async function getCoach(id) {
@@ -197,7 +246,7 @@ export async function submitFeedback(sessionId, body) {
       nextGoals: ['Practice 50/50 challenges in freeplay', 'Review shadow defence replay clips'],
     }
   }
-  return request('POST', `/sessions/${sessionId}/feedback`, body)
+  return request('POST', `/ai/sessions/${sessionId}/feedback`, body)
 }
 
 // ─── Verification ─────────────────────────────────────────────────────────────
@@ -207,7 +256,7 @@ export async function submitVerification(body) {
     await delay()
     return seed.reviewQueue[0]
   }
-  return request('POST', '/verification/submissions', body)
+  return request('POST', '/ai/verification/submissions', body)
 }
 
 export async function getReviewQueue() {

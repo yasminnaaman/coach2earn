@@ -16,7 +16,7 @@ const METHODS = [
 function CoachAvatar({ name }) {
   const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
+    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-100 text-sm font-bold text-sky-700">
       {initials}
     </div>
   )
@@ -156,7 +156,7 @@ export default function Checkout() {
           <div className="flex flex-col gap-2 mb-4">
             {METHODS.map((m) => (
               <label key={m.id}
-                className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition ${method === m.id ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition ${method === m.id ? 'border-sky-400 bg-sky-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
                 <input type="radio" name="method" value={m.id} checked={method === m.id}
                   onChange={() => handleMethodChange(m.id)} className="mt-0.5" />
                 <div>
@@ -192,7 +192,7 @@ export default function Checkout() {
           <button
             onClick={handlePay}
             disabled={paying}
-            className="w-full rounded-lg bg-indigo-600 py-3 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            className="w-full rounded-lg bg-sky-600 py-3 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-300"
           >
             {paying ? 'Processing…' : 'Pay and book sessions'}
           </button>

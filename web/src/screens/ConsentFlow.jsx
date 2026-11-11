@@ -58,7 +58,7 @@ export default function ConsentFlow() {
               <label className="flex items-start gap-2 cursor-pointer text-sm text-amber-900">
                 <input type="checkbox" checked={guardianConsent}
                   onChange={(e) => setGuardianConsent(e.target.checked)} className="mt-0.5" />
-                My parent or guardian has given consent for me to create a profile on Coach2Earn.
+                My parent or guardian has given consent for me to create a profile on SightCoach.
               </label>
             </div>
           )}
@@ -71,13 +71,13 @@ export default function ConsentFlow() {
               onChange={(e) => setDataConsent(e.target.checked)} className="mt-0.5" />
             <span className="text-gray-700">
               I agree to how my data is collected and used.{' '}
-              <a href="#" className="text-indigo-600 underline">View policy</a>
+              <a href="#" className="text-sky-600 underline">View policy</a>
             </span>
           </label>
         </div>
 
         <button type="submit" disabled={submitting || under18 === null}
-          className="rounded-lg bg-indigo-600 py-3 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          className="rounded-lg bg-sky-600 py-3 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-300">
           {submitting ? 'Saving…' : 'Continue'}
         </button>
       </form>

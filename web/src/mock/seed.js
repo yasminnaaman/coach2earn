@@ -1,4 +1,4 @@
-// All demo data from the Coach2Earn build-pack.
+// All demo data from the SightCoach build-pack.
 // Shaped exactly like the API contract (docs/shapes.md).
 // Used by src/api.js when VITE_USE_MOCK=true.
 

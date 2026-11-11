@@ -21,7 +21,7 @@ const TYPE_COLOURS = {
 function CoachAvatar({ name }) {
   const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100 text-lg font-bold text-indigo-700">
+    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-sky-100 text-lg font-bold text-sky-700">
       {initials}
     </div>
   )
@@ -78,7 +78,7 @@ export default function CoachPage() {
                   </span>
                   <div className="min-w-0">
                     <a href={ev.url} target="_blank" rel="noopener noreferrer"
-                      className="break-all text-sm text-indigo-600 hover:underline">{ev.url}</a>
+                      className="break-all text-sm text-sky-600 hover:underline">{ev.url}</a>
                     {ev.description && <p className="mt-0.5 text-xs text-gray-500">{ev.description}</p>}
                   </div>
                 </li>
@@ -130,7 +130,7 @@ export default function CoachPage() {
           </div>
           <button
             onClick={() => navigate(`/checkout/${pkg.id}`)}
-            className="mt-4 w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            className="mt-4 w-full rounded-lg bg-sky-600 py-2.5 text-sm font-medium text-white hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-300"
           >
             Book this coach
           </button>

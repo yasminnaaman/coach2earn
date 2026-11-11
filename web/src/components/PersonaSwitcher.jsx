@@ -7,7 +7,7 @@ export default function PersonaSwitcher({ persona, onChange }) {
       <select
         value={persona}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        className="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-300"
       >
         {PERSONAS.map((p) => (
           <option key={p} value={p}>

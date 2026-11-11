@@ -57,7 +57,7 @@ export default function CoachDashboard() {
           <p className="text-sm text-gray-500">Coach dashboard</p>
         </div>
         <Link to="/sessions/s-3"
-          className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-700 text-center">
+          className="rounded-lg bg-sky-600 px-5 py-2 text-sm font-medium text-white hover:bg-sky-700 text-center">
           Start session
         </Link>
       </div>
@@ -103,7 +103,7 @@ export default function CoachDashboard() {
       <SectionCard title="Activity">
         <div className="flex items-center justify-between mb-3">
           <span />
-          <button onClick={load} className="text-xs text-indigo-600 hover:underline">Refresh</button>
+          <button onClick={load} className="text-xs text-sky-600 hover:underline">Refresh</button>
         </div>
         {data.activityFeed?.length === 0 ? (
           <EmptyState heading="No sessions logged yet." />
