@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     jwt_secret_key: SecretStr | None = None
     access_token_expire_minutes: int = 30
     jwt_issuer: str = "coach2earn"
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    cors_origins: str = "https://coach2earn-web.onrender.com,http://localhost:5173,http://localhost:3000"
 
     model_config = SettingsConfigDict(
         env_file=".env",
