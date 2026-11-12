@@ -186,3 +186,6 @@ Transaction records are structured to support a later KRA eTIMS integration thro
 ---
 
 *Built at the PayPal AI Hackathon · BARBAH Games · Challenge 01*
+#   d e c e n t r a l i z e d - a p p  
+ #   c o a c h 2 e a r n  
+ 

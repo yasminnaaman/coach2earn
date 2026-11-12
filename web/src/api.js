@@ -234,12 +234,13 @@ export async function createQuote(body) {
         : { currency: 'USD', amount: seed.quote.amountUsd, label: `USD ${seed.quote.amountUsd.toFixed(2)}` },
     }
   }
-  const q = await request('POST', '/quotes', body)
-  const amountUsd = toUsd(q.price_amount, q.currency)
+  // Brian's payments module mounts the quote endpoint under /payments/quotes
+  const q = await request('POST', '/payments/quotes', body)
+  const amountUsd = toUsd(q.total_usd, 'USD')
   const amountKes = Math.round(amountUsd * KES_PER_USD)
   const isKes = body.paymentMethod !== 'paypal_balance'
   return {
-    id: q.id,
+    id: q.quote_id,
     packageId: q.package_id,
     amountUsd,
     amountKes,
