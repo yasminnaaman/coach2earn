@@ -381,6 +381,7 @@ export async function createQuote(body) {
   const amountUsd = toUsd(q.price_amount, q.currency)
   const amountKes = Math.round(amountUsd * KES_PER_USD)
   return {
+    // Core quotation (POST /quotes) — its id is what POST /orders accepts.
     id: q.id,
     packageId: q.package_id,
     amountUsd,
