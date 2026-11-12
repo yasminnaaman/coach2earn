@@ -90,7 +90,7 @@ def api_client(db_engine):
 
     app.dependency_overrides[get_db] = override_get_db
     try:
-        with TestClient(app, backend_options={"use_uvloop": True}) as client:
+        with TestClient(app) as client:
             yield client
     finally:
         app.dependency_overrides.pop(get_db, None)
