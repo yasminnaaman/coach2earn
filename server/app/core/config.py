@@ -1,5 +1,6 @@
 """Environment-based application settings."""
 
+from decimal import Decimal
 from functools import lru_cache
 
 from pydantic import SecretStr, field_validator
@@ -16,6 +17,16 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     jwt_issuer: str = "coach2earn"
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
+
+    # PayPal — Brian owns these. sandbox|mock. Never commit real secrets.
+    paypal_mode: str = "mock"
+    paypal_client_id: str | None = None
+    paypal_client_secret: SecretStr | None = None
+    paypal_webhook_id: str | None = None
+
+    # FX — "fixed" uses fx_fixed_rate; "open" fetches from open.er-api.com
+    fx_provider: str = "fixed"
+    fx_fixed_rate: Decimal = Decimal("129.00")
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,0 +1,253 @@
+{
+  "info": {
+    "name": "Coach2Earn — Payments (Brian)",
+    "description": "PayPal sandbox integration tests for Coach2Earn.\n\nImport `coach2earn-payments.postman_environment.json` alongside this collection and fill in your sandbox credentials.\n\nAll KES amounts are estimates and must be labelled as such. Never use the word escrow.\n\nReal PayPal fees, Payouts availability and withdrawal options for Kenyan accounts must be verified with PayPal before launch.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000/api/v1" },
+    { "key": "quote_id", "value": "" },
+    { "key": "paypal_order_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health check",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health",
+        "description": "Confirms the server is alive before running payment tests."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('server is healthy', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /payments/quotes — create quote",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/payments/quotes",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"package_id\": \"{{package_id}}\",\n  \"method\": \"paypal\"\n}"
+        },
+        "description": "Price a package (base + 8% platform fee) and lock the USD→KES rate for 15 minutes. KES amounts are estimates."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('platform fee is 8%', () => {",
+              "  const base = parseFloat(body.amount_usd);",
+              "  const fee  = parseFloat(body.platform_fee_usd);",
+              "  pm.expect(fee / base).to.be.closeTo(0.08, 0.001);",
+              "});",
+              "pm.test('total_usd = base + fee', () => {",
+              "  pm.expect(parseFloat(body.total_usd)).to.eql(",
+              "    parseFloat(body.amount_usd) + parseFloat(body.platform_fee_usd)",
+              "  );",
+              "});",
+              "pm.test('KES amount present and positive', () => {",
+              "  pm.expect(parseFloat(body.total_kes)).to.be.above(0);",
+              "});",
+              "pm.test('estimated_saving_kes is labelled', () => {",
+              "  pm.expect(body.note).to.include('estimate');",
+              "});",
+              "pm.test('expires_at is set', () => pm.expect(body.expires_at).to.be.a('string'));",
+              "pm.collectionVariables.set('quote_id', body.quote_id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /payments/quotes — expired quote returns 410",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/payments/orders",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"quote_id\": \"THIS-QUOTE-DOES-NOT-EXIST\",\n  \"method\": \"paypal\"\n}"
+        },
+        "description": "An unknown or expired quote_id must return 410 Gone — never charge the player twice."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('expired quote returns 410', () => pm.response.to.have.status(410));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /payments/orders — create order",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/payments/orders",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "postman-test-{{$randomUUID}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"quote_id\": \"{{quote_id}}\",\n  \"method\": \"paypal\"\n}"
+        },
+        "description": "Create a PayPal Orders v2 order from the locked quote. In mock mode returns a MOCK- order id."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('PayPal order id present', () => pm.expect(body.paypal_order_id).to.be.a('string'));",
+              "pm.test('approval URL present', () => pm.expect(body.approval_url).to.be.a('string'));",
+              "pm.collectionVariables.set('paypal_order_id', body.paypal_order_id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /payments/orders — duplicate Idempotency-Key does not double-charge",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/payments/orders",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "postman-fixed-key-idempotency-test" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"quote_id\": \"{{quote_id}}\",\n  \"method\": \"paypal\"\n}"
+        },
+        "description": "Send the same Idempotency-Key twice. The server must return 201 both times without creating a second charge."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('idempotent — returns 201', () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /payments/orders/{id}/capture — capture payment",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/payments/orders/{{quote_id}}/capture",
+        "description": "Capture the approved PayPal order. Returns a C2E-##### receipt reference and books sessions."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('receipt_ref starts with C2E-', () => pm.expect(body.receipt_ref).to.match(/^C2E-/));",
+              "pm.test('status is present', () => pm.expect(body.status).to.be.a('string'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /payments/payouts/run — payout confirmed sessions only",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/payments/payouts/run",
+        "description": "Trigger a PayPal Payouts batch for all confirmed, unpaid sessions. Only AVAILABLE earnings are included — pending or disputed sessions are excluded.\n\nNOTE: Payouts availability and withdrawal options for Kenyan accounts must be verified with PayPal before launch."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('status is submitted or nothing_to_pay', () => {",
+              "  pm.expect(['submitted', 'nothing_to_pay']).to.include(body.status);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /payments/webhooks/paypal — PAYMENT.CAPTURE.COMPLETED",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/payments/webhooks/paypal",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "paypal-transmission-id", "value": "postman-test-transmission-id" },
+          { "key": "paypal-transmission-time", "value": "2026-11-11T12:00:00Z" },
+          { "key": "paypal-cert-url", "value": "https://api.sandbox.paypal.com/v1/notifications/certs/fake" },
+          { "key": "paypal-auth-algo", "value": "SHA256withRSA" },
+          { "key": "paypal-transmission-sig", "value": "postman-sig" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"WH-postman-capture-001\",\n  \"event_type\": \"PAYMENT.CAPTURE.COMPLETED\",\n  \"resource\": {\n    \"id\": \"MOCK-CAP-POSTMAN-001\",\n    \"custom_id\": \"{{quote_id}}\"\n  }\n}"
+        },
+        "description": "Sample PAYMENT.CAPTURE.COMPLETED event. In mock mode the signature is always accepted."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('event_type echoed', () => pm.expect(pm.response.json().event_type).to.eql('PAYMENT.CAPTURE.COMPLETED'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /payments/orders/{id}/refund",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/payments/orders/{{quote_id}}/refund",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "description": "Full refund for a captured order. UI must show: 'Refunds follow the dispute policy.'"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('note mentions dispute policy', () => {",
+              "  pm.expect(pm.response.json().note).to.include('dispute policy');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

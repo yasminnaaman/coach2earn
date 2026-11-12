@@ -113,24 +113,45 @@ export const quote = {
   expiresAt: EXPIRES_AT,
 }
 
+// orderCapture — shaped exactly like POST /payments/orders/{id}/capture response.
+// snake_case keys match the backend; camelCase aliases are added for the mock
+// Confirmation screen until Reberatha remaps them.
 export const orderCapture = {
-  orderId: 'MOCK-ORDER-001',
-  receiptRef: 'C2E-48213',
-  paidWith: 'mpesa_sim',
-  coachName: 'Dani K.',
-  packageLabel: '5-session pack',
-  packageSubtotal: 150.0,
-  platformFee: 12.0,
-  totalPaidKes: 20898,
-  totalPaidUsd: 162.0,
-  currency: 'KES',
-  rateUsed: '1 USD = 129.00 KES (est.)',
+  // ── Backend field names (snake_case) ──────────────────────────────────────
+  receipt_ref:     'C2E-48213',
+  coach_name:      'Dani K.',
+  paid_with:       'mpesa_sim',
+  package_label:   '5-session pack',
+  platform_fee:    '12.00',
+  total_paid_kes:  '20898',
+  total_paid_usd:  '162.00',
+  currency:        'KES',
+  rate_used:       '1 USD = 129.00 KES (est.)',
+  booked_sessions: [
+    { id: 's-1', label: 'Session 1 of 5', starts_at: '2026-11-12T14:00:00Z' },
+    { id: 's-2', label: 'Session 2 of 5', starts_at: '2026-11-14T14:00:00Z' },
+    { id: 's-3', label: 'Session 3 of 5', starts_at: '2026-11-19T14:00:00Z' },
+    { id: 's-4', label: 'Session 4 of 5', starts_at: null },
+    { id: 's-5', label: 'Session 5 of 5', starts_at: null },
+  ],
+  order_id:  'MOCK-ORDER-001',
+  status:    'COMPLETED (simulated M-Pesa demo)',
+  simulated: true,
+  // ── camelCase aliases — remove once Reberatha remaps in Confirmation.jsx ──
+  receiptRef:    'C2E-48213',
+  coachName:     'Dani K.',
+  paidWith:      'mpesa_sim',
+  packageLabel:  '5-session pack',
+  platformFee:   12.0,
+  totalPaidKes:  20898,
+  totalPaidUsd:  162.0,
+  rateUsed:      '1 USD = 129.00 KES (est.)',
   bookedSessions: [
-    { id: 's-1', label: 'Gameplay assessment', startsAt: '2026-11-12T14:00:00Z' },
-    { id: 's-2', label: 'Rotations and positioning', startsAt: '2026-11-14T14:00:00Z' },
-    { id: 's-3', label: 'Team comms review', startsAt: '2026-11-19T14:00:00Z' },
-    { id: 's-4', label: null, startsAt: null },
-    { id: 's-5', label: null, startsAt: null },
+    { id: 's-1', label: 'Session 1 of 5', startsAt: '2026-11-12T14:00:00Z' },
+    { id: 's-2', label: 'Session 2 of 5', startsAt: '2026-11-14T14:00:00Z' },
+    { id: 's-3', label: 'Session 3 of 5', startsAt: '2026-11-19T14:00:00Z' },
+    { id: 's-4', label: 'Session 4 of 5', startsAt: null },
+    { id: 's-5', label: 'Session 5 of 5', startsAt: null },
   ],
 }
 

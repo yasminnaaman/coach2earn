@@ -136,18 +136,23 @@ export async function createQuote(body) {
         : { currency: 'USD', amount: seed.quote.amountUsd, label: `USD ${seed.quote.amountUsd.toFixed(2)}` },
     }
   }
-  return request('POST', '/quotes', body)
+  // Backend mounts quotes under /payments/quotes
+  return request('POST', '/payments/quotes', body)
 }
 
 // ─── Orders / payment ────────────────────────────────────────────────────────
 
 export async function createOrder(body) {
-  // body: { quoteId }
+  // body: { quote_id, method }  — snake_case matches backend
   if (USE_MOCK) {
     await delay()
     return {
-      orderId: 'MOCK-ORDER-001',
-      approvalUrl: `${window.location.origin}/confirmation?mock=1`,
+      order_id: 'MOCK-ORDER-001',
+      paypal_order_id: 'MOCK-PAYPALID-001',
+      approval_url: `${window.location.origin}/confirmation?mock=1`,
+      method: body.method || 'paypal',
+      simulated: body.method === 'mpesa_sim',
+      status: 'CREATED',
     }
   }
   return request('POST', '/payments/orders', body)
@@ -156,6 +161,8 @@ export async function createOrder(body) {
 export async function captureOrder(orderId) {
   if (USE_MOCK) {
     await delay()
+    // Return the seed directly — both snake_case and camelCase aliases are present
+    // until Reberatha finishes remapping in Confirmation.jsx
     return seed.orderCapture
   }
   return request('POST', `/payments/orders/${orderId}/capture`)

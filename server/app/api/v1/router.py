@@ -10,6 +10,7 @@ from app.api.v1.endpoints.orders import router as orders_router
 from app.api.v1.endpoints.profiles import router as profiles_router
 from ai.router import router as ai_router
 from passport.router import router as passport_router
+from payments.router import router as payments_router
 
 api_router = APIRouter()
 api_router.include_router(health_router, tags=["health"])
@@ -20,3 +21,4 @@ api_router.include_router(orders_router)
 api_router.include_router(bookings_router)
 api_router.include_router(ai_router)
 api_router.include_router(passport_router)
+api_router.include_router(payments_router)
