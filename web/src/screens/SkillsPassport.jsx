@@ -4,6 +4,7 @@ import { getPassport, addEvidence } from '../api.js'
 import SectionCard from '../components/SectionCard.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
+import EmptyState from '../components/EmptyState.jsx'
 
 const TYPE_COLOURS = {
   ballchasing_replay: 'bg-blue-100 text-blue-700',

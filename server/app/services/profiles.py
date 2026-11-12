@@ -359,6 +359,17 @@ def public_coach_statement(*, goal: str | None = None):
     return statement
 
 
+def display_name_from_email(email: str | None) -> str:
+    """Readable placeholder name until users have a display-name field.
+
+    "alex.mercer@x.io" -> "Alex Mercer". Only the local part is used; the
+    full address is never exposed.
+    """
+    local = (email or "").split("@", 1)[0]
+    words = [w for w in local.replace("_", ".").replace("-", ".").split(".") if w]
+    return " ".join(w.capitalize() for w in words) or "Coach"
+
+
 def coach_package_prices(
     db: Session, coach_profile_id: UUID, budget: Decimal | None = None, currency: str | None = None
 ) -> list[PublicPackagePrice]:
@@ -402,6 +413,7 @@ def serialize_public_coach(
     assert profile is not None
     return PublicCoachRead(
         id=profile.id,
+        name=display_name_from_email(profile.user.email if profile.user else None),
         professional_bio=profile.professional_bio or "",
         coaching_goals=profile.coaching_goals,
         experience_years=profile.experience_years,

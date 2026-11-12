@@ -3,6 +3,8 @@ services:
   - type: web
     name: coach2earn-api
     runtime: python
+    # build/start commands below run from server/ (deploy_setup.py, seed.py, app/)
+    rootDir: server
     buildCommand: pip install -r requirements.txt && python deploy_setup.py && python seed.py
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health
@@ -22,6 +24,10 @@ services:
       - key: STARTGG_TOKEN
         sync: false
       - key: DEMO_MODE
+        value: "true"
+      # Re-run the idempotent seed (server/seed.py) on every boot so the demo
+      # data exists even if the dashboard build command skips `python seed.py`.
+      - key: SEED_ON_STARTUP
         value: "true"
 
   # ── Frontend static site ──────────────────────────────────────────────────────

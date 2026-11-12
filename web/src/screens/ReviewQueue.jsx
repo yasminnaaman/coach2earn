@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getReviewQueue, approveSubmission, rejectSubmission } from '../api.js'
+import { getUser } from '../auth.js'
 import SectionCard from '../components/SectionCard.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -29,8 +30,13 @@ function RejectModal({ onConfirm, onClose }) {
   )
 }
 
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+
 export default function ReviewQueue() {
-  const persona = localStorage.getItem('c2e_persona') || 'gamer'
+  // Mock mode uses the demo persona switcher; live mode requires an ADMIN user.
+  const persona = USE_MOCK
+    ? localStorage.getItem('c2e_persona') || 'gamer'
+    : getUser()?.role === 'ADMIN' ? 'reviewer' : 'gamer'
   const [queue, setQueue] = useState([])
   const [statuses, setStatuses] = useState({})
   const [loading, setLoading] = useState(true)
@@ -65,7 +71,9 @@ export default function ReviewQueue() {
   }
 
   if (persona !== 'reviewer') {
-    return <EmptyState heading="Switch to the reviewer persona to view the queue." subtext="Use the demo persona switcher in the header." />
+    return USE_MOCK
+      ? <EmptyState heading="Switch to the reviewer persona to view the queue." subtext="Use the demo persona switcher in the header." />
+      : <EmptyState heading="The review queue is for admins only." subtext="Log in with an admin account to review coaches." />
   }
   if (loading) return <LoadingSpinner />
 

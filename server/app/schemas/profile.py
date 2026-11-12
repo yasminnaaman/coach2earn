@@ -134,6 +134,7 @@ class PublicPackagePrice(BaseModel):
 
 class PublicCoachRead(BaseModel):
     id: UUID
+    name: str = "Coach"
     professional_bio: str
     coaching_goals: str | None
     experience_years: int
