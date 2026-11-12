@@ -166,8 +166,9 @@ COACHES: list[CoachSeed] = [
             "breaking down replays to identify the exact habits holding each player back."
         ),
         coaching_goals=(
-            "Help every student achieve at least one full rank tier improvement within "
-            "their first package. Fundamentals first, mechanical flourishes second."
+            "Help every student build the mechanical skills and game sense needed for "
+            "at least one full rank tier improvement within their first package. "
+            "Fundamentals first, flourishes second."
         ),
         experience_years=4,
         availability={
@@ -218,8 +219,9 @@ COACHES: list[CoachSeed] = [
             "More than 120 students coached — many now competing at Diamond 3 and above."
         ),
         coaching_goals=(
-            "Transform inconsistent players into reliable team assets. Master the "
-            "controllable, adapt to the rest."
+            "Transform inconsistent players into reliable team assets by sharpening "
+            "decision-making skills and mechanical consistency. Master the controllable, "
+            "adapt to the rest."
         ),
         experience_years=5,
         availability={
@@ -269,8 +271,9 @@ COACHES: list[CoachSeed] = [
             "learning path."
         ),
         coaching_goals=(
-            "Create a safe, supportive environment where players can fail, learn, "
-            "and grow without fear. Confidence on the pitch is half the battle."
+            "Build communication skills and mechanical consistency in a safe, supportive "
+            "environment where players can fail, learn, and grow. "
+            "Confidence on the pitch is half the battle."
         ),
         experience_years=3,
         availability={
@@ -319,8 +322,9 @@ COACHES: list[CoachSeed] = [
             "designed to produce lasting rank improvements rather than quick fixes."
         ),
         coaching_goals=(
-            "Turn replay data into actionable habits. Every session ends with a "
-            "written summary and a set of drills you can do in free play."
+            "Turn replay data into actionable habits that sharpen positioning skills "
+            "and decision-making. Every session ends with a written summary and "
+            "a set of drills you can do in free play."
         ),
         experience_years=6,
         availability={
@@ -370,8 +374,9 @@ COACHES: list[CoachSeed] = [
             "I make technical concepts accessible and celebrate every improvement."
         ),
         coaching_goals=(
-            "Build the next generation of competitive Rocket League players while "
-            "teaching resilience, teamwork, and healthy gaming habits along the way."
+            "Build foundational skills and nurture the next generation of competitive "
+            "Rocket League players — teaching resilience, teamwork, and healthy "
+            "gaming habits along the way."
         ),
         experience_years=2,
         availability={

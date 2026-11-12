@@ -3,15 +3,31 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.security import CurrentUser, require_coach, require_player
 from app.db.session import get_db
 from app.models.identity import User
-from app.schemas.orders import OrderAccept, OrderRead, PackageRead, PackageWrite, QuotationCreate, QuotationRead
-from app.services.orders import (CommerceError, accept_quotation, create_package, list_packages,
-                                 list_user_orders, order_for_user, package_by_id, player_quotation,
-                                 update_package)
+from app.schemas.orders import (
+    OrderAccept,
+    OrderRead,
+    PackageRead,
+    PackageWrite,
+    QuotationCreate,
+    QuotationRead,
+)
+from app.services.orders import (
+    CommerceError,
+    accept_quotation,
+    create_package,
+    list_packages,
+    list_user_orders,
+    order_for_user,
+    package_by_id,
+    player_quotation,
+    update_package,
+)
 
 router = APIRouter()
 
@@ -65,6 +81,50 @@ def package_update(package_id: UUID, payload: PackageWrite, user: User = Depends
 def quotation_create(payload: QuotationCreate, user: User = Depends(require_player), db: Session = Depends(get_db)):
     try:
         return player_quotation(db, user, payload.package_id)
+    except CommerceError as exc:
+        _fail(exc)
+
+
+# ── /quotes ───────────────────────────────────────────────────────────────────
+# Frontend alias: Checkout.jsx calls POST /quotes with { packageId, paymentMethod }.
+# Backend contract uses POST /quotations with { package_id }.
+# This endpoint bridges the two so Checkout works without any frontend changes.
+# paymentMethod is accepted but ignored here — Brian's payments layer uses it.
+
+class QuotesRequest(BaseModel):
+    packageId: UUID | None = None
+    package_id: UUID | None = None
+    paymentMethod: str | None = None   # forwarded to payments layer, not used here
+
+    @property
+    def resolved_package_id(self) -> UUID | None:
+        return self.packageId or self.package_id
+
+
+@router.post(
+    "/quotes",
+    response_model=QuotationRead,
+    status_code=201,
+    tags=["orders"],
+    summary="Create a price-locked quotation (frontend alias for POST /quotations)",
+)
+def quotes_create(
+    payload: QuotesRequest,
+    user: User = Depends(require_player),
+    db: Session = Depends(get_db),
+):
+    """
+    Accepts { packageId, paymentMethod } from the Checkout screen and returns
+    the same QuotationRead as POST /quotations.  The KES/USD rate fields
+    (amountKes, amountUsd, estimatedSavingKes) are computed by Brian's payments
+    layer via POST /quotes in /server/payments — once that is live it will
+    supersede this endpoint.
+    """
+    pkg_id = payload.resolved_package_id
+    if pkg_id is None:
+        raise HTTPException(status_code=422, detail="packageId is required")
+    try:
+        return player_quotation(db, user, pkg_id)
     except CommerceError as exc:
         _fail(exc)
 
