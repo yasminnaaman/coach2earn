@@ -6,7 +6,7 @@ from sqlalchemy.exc import OperationalError
 from app.api.v1.endpoints import health
 from app.main import app
 
-client = TestClient(app)
+client = TestClient(app, backend_options={"use_uvloop": True})
 
 
 def test_health_returns_ok_when_database_is_available(monkeypatch) -> None:

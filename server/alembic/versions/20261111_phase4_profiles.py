@@ -1,7 +1,7 @@
 """Add profile preferences and auditable qualification review records.
 
 Revision ID: 20261111_phase4_profiles
-Revises: 20261111_merge_auth_profile_heads
+Revises: 20261111_merge_heads
 Create Date: 2026-11-11
 """
 
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 
 revision: str = "20261111_phase4_profiles"
-down_revision: Union[str, None] = "20261111_merge_auth_profile_heads"
+down_revision: Union[str, None] = "20261111_merge_heads"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

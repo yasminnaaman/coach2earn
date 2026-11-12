@@ -6,6 +6,11 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
+
+def _default_order_reference() -> str:
+    """Generate a unique C2E order reference without importing uuid4 twice."""
+    return f"C2E-{uuid4().hex[:16].upper()}"
+
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
@@ -106,6 +111,7 @@ class Order(TimestampMixin, Base):
     __tablename__ = "orders"
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    order_reference: Mapped[str] = mapped_column(String(32), nullable=False, unique=True, default=_default_order_reference)
     quotation_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("quotations.id", ondelete="RESTRICT"), nullable=False, unique=True
     )
@@ -181,4 +187,35 @@ class CoachingSession(TimestampMixin, Base):
         CheckConstraint("sequence_number > 0", name="sequence_positive"),
         CheckConstraint("ends_at > starts_at", name="end_after_start"),
         Index("ix_coaching_sessions_status_starts", "status", "starts_at"),
+    )
+
+
+class CoachAvailability(TimestampMixin, Base):
+    """A recurring or one-off availability window that a coach publishes."""
+
+    __tablename__ = "coach_availability"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    coach_profile_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("coach_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    # ISO weekday 1=Mon … 7=Sun; NULL means a specific calendar date (one-off)
+    weekday: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    specific_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    starts_at_utc: Mapped[str] = mapped_column(String(5), nullable=False)  # "HH:MM"
+    ends_at_utc: Mapped[str] = mapped_column(String(5), nullable=False)    # "HH:MM"
+    slot_duration_minutes: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    is_active: Mapped[bool] = mapped_column(nullable=False, default=True)
+
+    coach_profile: Mapped[CoachProfile] = relationship()
+
+    __table_args__ = (
+        CheckConstraint("weekday IS NULL OR (weekday >= 1 AND weekday <= 7)", name="weekday_range"),
+        CheckConstraint(
+            "(weekday IS NULL) != (specific_date IS NULL)",
+            name="availability_type_exclusive",
+        ),
+        CheckConstraint("slot_duration_minutes > 0", name="slot_duration_positive"),
+        CheckConstraint("starts_at_utc < ends_at_utc", name="availability_window_order"),
+        Index("ix_coach_availability_coach_active", "coach_profile_id", "is_active"),
     )
