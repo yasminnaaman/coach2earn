@@ -1,47 +1,41 @@
 import { useEffect, useState } from 'react'
 
-function pad(n) {
-  return String(n).padStart(2, '0')
-}
+const pad = (n) => String(n).padStart(2, '0')
+const secondsUntil = (iso) => Math.max(0, Math.floor((new Date(iso) - Date.now()) / 1000))
 
 export default function RateLockCountdown({ expiresAt, onExpire }) {
-  const [secondsLeft, setSecondsLeft] = useState(() => {
-    return Math.max(0, Math.floor((new Date(expiresAt) - Date.now()) / 1000))
-  })
-  const [expired, setExpired] = useState(secondsLeft <= 0)
+  const [secondsLeft, setSecondsLeft] = useState(() => secondsUntil(expiresAt))
 
   useEffect(() => {
-    setSecondsLeft(Math.max(0, Math.floor((new Date(expiresAt) - Date.now()) / 1000)))
-    setExpired(false)
-  }, [expiresAt])
+    setSecondsLeft(secondsUntil(expiresAt))
+    const t = setInterval(() => {
+      const left = secondsUntil(expiresAt)
+      setSecondsLeft(left)
+      if (left <= 0) {
+        clearInterval(t)
+        onExpire?.()
+      }
+    }, 1000)
+    return () => clearInterval(t)
+  }, [expiresAt, onExpire])
 
-  useEffect(() => {
-    if (expired) return
-    if (secondsLeft <= 0) {
-      setExpired(true)
-      onExpire?.()
-      return
-    }
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
-    return () => clearTimeout(t)
-  }, [secondsLeft, expired, onExpire])
-
-  if (expired) {
+  if (secondsLeft <= 0) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-        Rate expired. Refresh the quote.
+      <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+        Rate expired — refreshing your quote…
       </div>
     )
   }
-
-  const mins = Math.floor(secondsLeft / 60)
-  const secs = secondsLeft % 60
+  const pct = Math.min(100, (secondsLeft / 900) * 100)
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-      Rate locked for{' '}
-      <span className="font-mono font-semibold">
-        {pad(mins)}:{pad(secs)}
-      </span>
+    <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.07] px-4 py-3 text-sm text-amber-200">
+      <div className="flex items-center justify-between">
+        <span>Rate locked</span>
+        <span className="font-mono font-semibold">{pad(Math.floor(secondsLeft / 60))}:{pad(secondsLeft % 60)}</span>
+      </div>
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-amber-400/10">
+        <div className="h-full rounded-full bg-amber-300 transition-all" style={{ width: `${pct}%` }} />
+      </div>
     </div>
   )
 }

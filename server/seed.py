@@ -13,6 +13,7 @@ Sections
 7.  Points transactions     (earned points from completed sessions)
 8.  Coach earnings          (net earnings from completed orders)
 9.  Admin reviewer          (1 admin + 3 pending coach qualifications)
+10. Active order            (upcoming sessions, confirmation, messages, evidence)
 
 Idempotency
 ───────────
@@ -1028,6 +1029,109 @@ def _seed_pending_qualifications(db: Session) -> None:
         print(f"  ✓  qualification '{title}'  (pending review)")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Section 10 — Active demo order (upcoming sessions, confirmation, messages)
+# ─────────────────────────────────────────────────────────────────────────────
+
+ACTIVE_ORDER_REF = "C2E-SEED000000000003"
+
+
+def _seed_active_order(db: Session) -> None:
+    """Liam has a paid 8-session order with Jordan (test coach): one session
+    completed and awaiting Liam's confirmation, two upcoming, five left to
+    schedule — plus a short message thread and passport evidence."""
+    from app.models.engagement import Message, PlayerEvidence
+
+    if _exists(db, Order, order_reference=ACTIVE_ORDER_REF):
+        print(f"  skip  order {ACTIVE_ORDER_REF}")
+        return
+    player_user = _get_user(db, "liam.foster@coach2earn.io")
+    player = _get_player_profile(db, "liam.foster@coach2earn.io")
+    coach = _get_coach_profile(db, "coach.test@coach2earn.io")
+    if not (player_user and player and coach):
+        print("  ✗  active order skipped — liam/test coach missing", file=sys.stderr)
+        return
+    pkg = db.scalar(select(CoachingPackage).where(
+        CoachingPackage.coach_profile_id == coach.id,
+        CoachingPackage.title == "Rank-Up Accelerator — 8 Sessions",
+    ))
+    if pkg is None:
+        print("  ✗  active order skipped — package missing", file=sys.stderr)
+        return
+
+    quotation = Quotation(
+        id=uuid4(), package_id=pkg.id, player_profile_id=player.id, coach_profile_id=coach.id,
+        package_title=pkg.title, package_description=pkg.description, price_amount=pkg.price_amount,
+        currency=pkg.currency, session_limit=pkg.session_limit, duration_days=pkg.duration_days,
+        terms=pkg.terms, expires_at=datetime.now(UTC) + timedelta(hours=1),
+        status=QuotationStatus.ACCEPTED,
+    )
+    db.add(quotation)
+    db.flush()
+    order = Order(
+        id=uuid4(), order_reference=ACTIVE_ORDER_REF, quotation_id=quotation.id,
+        package_title=pkg.title, package_description=pkg.description, price_amount=pkg.price_amount,
+        currency=pkg.currency, session_limit=pkg.session_limit, duration_days=pkg.duration_days,
+        terms=pkg.terms, status=OrderStatus.CONFIRMED,
+    )
+    db.add(order)
+    db.flush()
+    booking = Booking(id=uuid4(), order_id=order.id, status=BookingStatus.CONFIRMED,
+                      confirmed_at=_ago(days=3))
+    db.add(booking)
+    db.flush()
+
+    per_session = (pkg.price_amount / pkg.session_limit).quantize(Decimal("0.01"))
+    commission = (per_session * Decimal("0.15")).quantize(Decimal("0.01"))
+    done_start = _ago(days=1, hours=3)
+    done = CoachingSession(
+        id=uuid4(), booking_id=booking.id, sequence_number=1,
+        starts_at=done_start, ends_at=done_start + timedelta(hours=1),
+        status=SessionStatus.COMPLETED, confirmed_at=done_start,
+        completed_at=done_start + timedelta(hours=1),
+        coach_notes=(
+            "+ Great recovery flips and fast kickoffs\n"
+            "+ Calm decision-making under pressure\n"
+            "- Over-committing on second man rotation\n"
+            "- Boost starving in mid-field\n"
+            "> 15 min of rotation drills in workshop maps daily\n"
+            "> Review two replays focusing on back-post rotation"
+        ),
+    )
+    db.add(done)
+    db.flush()
+    db.add(CoachEarning(
+        id=uuid4(), coach_profile_id=coach.id, order_id=order.id, session_id=done.id,
+        gross_amount=per_session, commission_amount=commission, net_amount=per_session - commission,
+        currency=pkg.currency, status=EarningStatus.PENDING,
+    ))
+    base = (datetime.now(UTC) + timedelta(days=2)).replace(hour=18, minute=0, second=0, microsecond=0)
+    for seq, days in ((2, 0), (3, 4)):
+        start = base + timedelta(days=days)
+        db.add(CoachingSession(
+            id=uuid4(), booking_id=booking.id, sequence_number=seq,
+            starts_at=start, ends_at=start + timedelta(hours=1), status=SessionStatus.SCHEDULED,
+        ))
+
+    coach_user_id = coach.user_id
+    thread = [
+        (player_user.id, coach_user_id, 3, "Hi coach! Just booked the Rank-Up package — keen to hit Champ this season."),
+        (coach_user_id, player_user.id, 3, "Welcome Liam! Send me two recent replays before our first session and we'll build a plan."),
+        (player_user.id, coach_user_id, 2, "Uploaded them to my passport. Thanks!"),
+        (coach_user_id, player_user.id, 1, "Great first session today — notes are on your passport. Confirm it when you get a sec 👍"),
+    ]
+    for sender, recipient, days_ago, body in thread:
+        db.add(Message(id=uuid4(), sender_user_id=sender, recipient_user_id=recipient,
+                       order_id=order.id, body=body, created_at=_ago(days=days_ago)))
+    for ev_type, url in (
+        ("ballchasing_replay", "https://ballchasing.com/replay/liam-ranked-3v3-001"),
+        ("tournament", "https://start.gg/tournament/nairobi-rl-open"),
+    ):
+        db.add(PlayerEvidence(user_id=player_user.id, evidence_type=ev_type, url=url))
+    db.commit()
+    print(f"  ✓  order  {ACTIVE_ORDER_REF}  (1 awaiting confirmation, 2 upcoming, 5 to schedule)")
+
+
 def main() -> int:
     # ── 1. Specialisation catalog ─────────────────────────────────────────────
     print("── 1. Specialisation catalog ────────────────────────────────────────")
@@ -1095,6 +1199,12 @@ def main() -> int:
         _seed_admin(db)
     with SessionLocal() as db:
         _seed_pending_qualifications(db)
+
+    # ── 10. Active demo order ─────────────────────────────────────────────────
+    print()
+    print("── 10. Active order / upcoming sessions / messages ──────────────────")
+    with SessionLocal() as db:
+        _seed_active_order(db)
 
     # ── Summary ───────────────────────────────────────────────────────────────
     print()

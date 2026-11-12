@@ -11,6 +11,8 @@ The PostgreSQL database must already have migrations applied:
 import os
 
 os.environ["JWT_SECRET_KEY"] = "d5b05e90c7b8a2f9a4c4d852f2b51d63c2f6b3e18a8e75d2f9c0b8a1d6e4c731"
+# Never run the demo seed against a real DB from the TestClient lifespan.
+os.environ["SEED_ON_STARTUP"] = "false"
 
 import pytest
 from sqlalchemy import create_engine, event, text

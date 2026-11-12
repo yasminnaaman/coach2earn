@@ -1,195 +1,182 @@
-import { useState, useEffect } from 'react'
-import { getReviewQueue, approveSubmission, rejectSubmission } from '../api.js'
-import { getUser } from '../auth.js'
-import SectionCard from '../components/SectionCard.jsx'
-import LoadingSpinner from '../components/LoadingSpinner.jsx'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { approveSubmission, getReviewQueue, rejectSubmission, requestMoreEvidence } from '../api.js'
+import { currentRole } from '../auth.js'
 import EmptyState from '../components/EmptyState.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
-
-function RejectModal({ onConfirm, onClose }) {
-  const [reason, setReason] = useState('')
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
-        <h2 className="mb-3 text-base font-semibold text-gray-900">Reject submission</h2>
-        <textarea value={reason} onChange={(e) => setReason(e.target.value)}
-          rows={3} placeholder="Reason for rejection"
-          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300" />
-        <div className="mt-3 flex gap-3">
-          <button onClick={() => onConfirm(reason)}
-            className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-700">
-            Reject
-          </button>
-          <button onClick={onClose}
-            className="flex-1 rounded-lg border border-gray-200 py-2 text-sm text-gray-600 hover:bg-gray-50">
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+import LoadingSpinner from '../components/LoadingSpinner.jsx'
+import StatusPill from '../components/StatusPill.jsx'
+import { Avatar, Icon, Modal, PageHeader, Spinner, Stat, fmtDate, useToast } from '../components/ui.jsx'
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 
+const DECISIONS = {
+  approved: { title: 'Approve submission', button: 'Approve', cls: 'btn-success', placeholder: 'Optional note for the record', required: false, toast: 'Approved — the coach has been notified.' },
+  rejected: { title: 'Reject submission', button: 'Reject', cls: 'btn-danger', placeholder: 'Reason for rejection (shared with the coach)', required: true, toast: 'Submission rejected.' },
+  needs_more_evidence: { title: 'Request more evidence', button: 'Send request', cls: 'btn-warning', placeholder: 'What else should the coach provide?', required: true, toast: 'Request for more evidence sent.' },
+}
+
 export default function ReviewQueue() {
-  // Mock mode uses the demo persona switcher; live mode requires an ADMIN user.
-  const persona = USE_MOCK
-    ? localStorage.getItem('c2e_persona') || 'gamer'
-    : getUser()?.role === 'ADMIN' ? 'reviewer' : 'gamer'
+  const isAdmin = currentRole() === 'ADMIN'
+  const toast = useToast()
   const [queue, setQueue] = useState([])
-  const [statuses, setStatuses] = useState({})
-  const [loading, setLoading] = useState(true)
+  const [decided, setDecided] = useState({})
+  const [loading, setLoading] = useState(isAdmin)
   const [error, setError] = useState('')
-  const [rejectTarget, setRejectTarget] = useState(null)
+  const [action, setAction] = useState(null) // { id, kind }
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function load() {
+    setLoading(true)
+    setError('')
+    try {
+      setQueue(await getReviewQueue())
+      setDecided({})
+    } catch (e) {
+      setError(e.message || 'Could not load the review queue. Try refreshing.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    if (persona !== 'reviewer') { setLoading(false); return }
-    getReviewQueue()
-      .then(setQueue)
-      .catch(() => setError('Could not load the review queue. Try refreshing.'))
-      .finally(() => setLoading(false))
-  }, [])
+    if (isAdmin) load()
+  }, [isAdmin])
 
-  async function handleApprove(id) {
+  async function decide() {
+    const cfg = DECISIONS[action.kind]
+    if (cfg.required && !note.trim()) return
+    setBusy(true)
     try {
-      await approveSubmission(id)
-      setStatuses((s) => ({ ...s, [id]: 'approved' }))
-    } catch {
-      setError('Approval failed. Try again.')
+      const fn = { approved: approveSubmission, rejected: rejectSubmission, needs_more_evidence: requestMoreEvidence }[action.kind]
+      await fn(action.id, { notes: note.trim(), reason: note.trim() })
+      setDecided((d) => ({ ...d, [action.id]: action.kind }))
+      toast(cfg.toast)
+      setAction(null)
+      setNote('')
+    } catch (e) {
+      toast(e.message, 'error')
+    } finally {
+      setBusy(false)
     }
   }
 
-  async function handleReject(id, reason) {
-    try {
-      await rejectSubmission(id, { reason })
-      setStatuses((s) => ({ ...s, [id]: 'rejected' }))
-      setRejectTarget(null)
-    } catch {
-      setError('Rejection failed. Try again.')
-    }
+  if (!isAdmin) {
+    return (
+      <EmptyState icon="shield" heading="The review queue is for admins"
+        subtext={USE_MOCK ? 'Switch the demo persona to “reviewer” in the header.' : 'Log in with an admin account to review coaches.'}
+        action={!USE_MOCK && <Link to="/login" className="btn-primary">Log in as admin</Link>} />
+    )
   }
+  if (loading) return <LoadingSpinner label="Loading review queue…" />
 
-  if (persona !== 'reviewer') {
-    return USE_MOCK
-      ? <EmptyState heading="Switch to the reviewer persona to view the queue." subtext="Use the demo persona switcher in the header." />
-      : <EmptyState heading="The review queue is for admins only." subtext="Log in with an admin account to review coaches." />
-  }
-  if (loading) return <LoadingSpinner />
+  const pending = queue.filter((q) => !decided[q.id])
+  const cfg = action ? DECISIONS[action.kind] : null
 
   return (
     <div>
-      {/* Required banner — must appear before any AI content */}
-      <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800">
-        A person reviews every coach before they are verified.
+      <PageHeader eyebrow="Trust & safety" title="Verification queue"
+        subtitle="Evidence is organised automatically — a person makes every decision."
+        actions={<button className="btn-secondary" onClick={load}><Icon name="refresh" /> Refresh</button>} />
+
+      <div className="mb-6 flex items-center gap-3 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3 text-sm font-medium text-cyan-100">
+        <Icon name="shield" className="h-5 w-5 shrink-0" /> A person reviews every coach before they are verified.
       </div>
 
-      <h1 className="mb-4 text-2xl font-semibold text-gray-900">Verification queue</h1>
+      <div className="mb-6 grid grid-cols-3 gap-4">
+        <Stat label="Pending" value={pending.length} icon="clock" tone="amber" />
+        <Stat label="Decided now" value={Object.keys(decided).length} icon="check" tone="emerald" />
+        <Stat label="Total in queue" value={queue.length} icon="shield" tone="violet" />
+      </div>
+
       <ErrorMessage message={error} />
 
       {queue.length === 0 ? (
-        <EmptyState heading="The queue is empty." subtext="No submissions pending review." />
+        <EmptyState icon="check" heading="The queue is empty" subtext="No submissions pending review. Nice work!" />
       ) : (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
           {queue.map((sub) => {
-            const status = statuses[sub.id]
+            const status = decided[sub.id]
             return (
-              <SectionCard key={sub.id}>
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="font-semibold text-gray-900">{sub.coachName}</p>
-                    <p className="text-xs text-gray-400">Submitted {new Date(sub.submittedAt).toLocaleDateString()}</p>
+              <section key={sub.id} className={`card transition ${status ? 'opacity-60' : ''}`}>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar name={sub.coachName} />
+                    <div>
+                      <p className="font-semibold text-white">{sub.coachName}</p>
+                      <p className="text-xs text-slate-400">Submitted {fmtDate(sub.submittedAt)}</p>
+                    </div>
                   </div>
-                  {status === 'approved' && (
-                    <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">Approved</span>
+                  <StatusPill status={status || 'pending'} />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  {sub.claims?.length > 0 && (
+                    <div>
+                      <p className="label">Claims</p>
+                      <ul className="flex flex-col gap-1 text-sm text-slate-200">
+                        {sub.claims.map((c, i) => <li key={i} className="flex gap-2"><Icon name="star" className="mt-1 h-3.5 w-3.5 shrink-0 text-violet-300" />{c}</li>)}
+                      </ul>
+                    </div>
                   )}
-                  {status === 'rejected' && (
-                    <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">Rejected</span>
+                  {sub.sources?.length > 0 && (
+                    <div>
+                      <p className="label">Sources</p>
+                      <ul className="flex flex-col gap-1 text-sm">
+                        {sub.sources.map((s, i) => (
+                          <li key={i} className="truncate">
+                            <a href={s.url} target="_blank" rel="noopener noreferrer" className="link">{s.url}</a>
+                            {s.description && <span className="text-slate-500"> — {s.description}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
 
-                {/* Claims */}
-                {sub.claims?.length > 0 && (
-                  <div className="mb-3">
-                    <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">Claims</p>
-                    <ul className="list-disc pl-4 text-sm text-gray-700 space-y-0.5">
-                      {sub.claims.map((c, i) => <li key={i}>{c}</li>)}
-                    </ul>
+                {(sub.gaps?.length > 0 || sub.redFlags?.length > 0) && (
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    {sub.gaps?.length > 0 && (
+                      <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-3">
+                        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-amber-300">Gaps</p>
+                        <ul className="list-disc pl-4 text-sm text-amber-100">{sub.gaps.map((g, i) => <li key={i}>{g}</li>)}</ul>
+                      </div>
+                    )}
+                    {sub.redFlags?.length > 0 && (
+                      <div className="rounded-xl border border-rose-400/20 bg-rose-500/[0.06] p-3">
+                        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-rose-300">Red flags</p>
+                        <ul className="list-disc pl-4 text-sm text-rose-100">{sub.redFlags.map((f, i) => <li key={i}>{f}</li>)}</ul>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Sources */}
-                {sub.sources?.length > 0 && (
-                  <div className="mb-3">
-                    <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">Sources</p>
-                    <ul className="flex flex-col gap-1">
-                      {sub.sources.map((s, i) => (
-                        <li key={i} className="text-sm">
-                          <a href={s.url} target="_blank" rel="noopener noreferrer"
-                            className="text-sky-600 hover:underline">{s.url}</a>
-                          {s.description && <span className="ml-2 text-gray-500">— {s.description}</span>}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {sub.summary && <div className="mt-4 rounded-xl bg-white/[0.03] p-3 text-sm text-slate-300">{sub.summary}</div>}
 
-                {/* Gaps */}
-                {sub.gaps?.length > 0 && (
-                  <div className="mb-3 rounded-lg bg-amber-50 p-3">
-                    <p className="mb-1 text-xs font-medium uppercase tracking-wide text-amber-600">Gaps</p>
-                    <ul className="list-disc pl-4 text-sm text-amber-800 space-y-0.5">
-                      {sub.gaps.map((g, i) => <li key={i}>{g}</li>)}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Red flags */}
-                {sub.redFlags?.length > 0 && (
-                  <div className="mb-3 rounded-lg bg-red-50 p-3">
-                    <p className="mb-1 text-xs font-medium uppercase tracking-wide text-red-600">Red flags</p>
-                    <ul className="list-disc pl-4 text-sm text-red-700 space-y-0.5">
-                      {sub.redFlags.map((f, i) => <li key={i}>{f}</li>)}
-                    </ul>
-                  </div>
-                )}
-
-                {/* AI summary */}
-                {sub.summary && (
-                  <div className="mb-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
-                    {sub.summary}
-                  </div>
-                )}
-
-                {/* Actions */}
                 {!status && (
-                  <div className="flex gap-3">
-                    <button onClick={() => handleApprove(sub.id)}
-                      className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-medium text-white hover:bg-green-700">
-                      Approve
-                    </button>
-                    <button onClick={() => setRejectTarget(sub.id)}
-                      className="flex-1 rounded-lg border border-red-200 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
-                      Reject
-                    </button>
-                    <button onClick={() => alert('Request sent to coach.')}
-                      className="flex-1 rounded-lg border border-amber-200 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50">
-                      Needs more evidence
-                    </button>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <button onClick={() => setAction({ id: sub.id, kind: 'approved' })} className="btn-success"><Icon name="check" /> Approve</button>
+                    <button onClick={() => setAction({ id: sub.id, kind: 'rejected' })} className="btn-danger"><Icon name="x" /> Reject</button>
+                    <button onClick={() => setAction({ id: sub.id, kind: 'needs_more_evidence' })} className="btn-warning"><Icon name="flag" /> Needs more evidence</button>
                   </div>
                 )}
-              </SectionCard>
+              </section>
             )
           })}
         </div>
       )}
 
-      {rejectTarget && (
-        <RejectModal
-          onConfirm={(reason) => handleReject(rejectTarget, reason)}
-          onClose={() => setRejectTarget(null)}
-        />
-      )}
+      <Modal open={!!action} onClose={() => setAction(null)} title={cfg?.title}
+        footer={<>
+          <button className="btn-ghost" onClick={() => setAction(null)}>Cancel</button>
+          <button className={cfg?.cls} onClick={decide} disabled={busy || (cfg?.required && !note.trim())}>
+            {busy && <Spinner />} {cfg?.button}
+          </button>
+        </>}>
+        <textarea rows={4} className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={cfg?.placeholder} autoFocus />
+        {cfg?.required && <p className="mt-2 text-xs text-slate-500">Required.</p>}
+      </Modal>
     </div>
   )
 }

@@ -3,6 +3,8 @@
 
 const TOKEN_KEY = 'c2e_token'
 const USER_KEY = 'c2e_user'
+const PERSONA_KEY = 'c2e_persona'
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY)
@@ -34,4 +36,22 @@ export function clearAuth() {
 
 export function isLoggedIn() {
   return !!getToken()
+}
+
+// ─── Roles ────────────────────────────────────────────────────────────────────
+// Live mode: the logged-in user's role. Mock mode: the demo persona switcher.
+const PERSONA_ROLE = { gamer: 'PLAYER', coach: 'COACH', team_admin: 'PLAYER', reviewer: 'ADMIN' }
+
+export function getPersona() {
+  return localStorage.getItem(PERSONA_KEY) || 'gamer'
+}
+
+export function setPersona(persona) {
+  localStorage.setItem(PERSONA_KEY, persona)
+  window.dispatchEvent(new Event('c2e-persona'))
+}
+
+export function currentRole() {
+  if (USE_MOCK) return PERSONA_ROLE[getPersona()] || 'PLAYER'
+  return getUser()?.role || null
 }

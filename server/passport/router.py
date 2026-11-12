@@ -5,11 +5,16 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.security import require_player
 from app.db.session import get_db
-from app.models.identity import User
+from app.models.commerce import Booking, CoachingSession, Order, Quotation
+from app.models.engagement import PlayerEvidence
+from app.models.enums import SessionStatus
+from app.models.identity import CoachProfile, PlayerProfile, User
+from app.services.profiles import display_name_from_email
 
 router = APIRouter(prefix="/players", tags=["passport"])
 
@@ -108,25 +113,92 @@ def get_passport(
     demo_steam_id = "demo-steam-001"
     stats = fetch_player_replays(demo_steam_id)
 
+    user = db.get(User, player_id)
+    if user is None:
+        # Unknown player id — keep the original demo passport.
+        return PassportResponse(
+            player=PlayerSummary(id=str(player_id), name="Demo Player", game="rocket_league"),
+            rank="Diamond II",
+            replayStats=ReplayStats(**stats),
+            evidence=[EvidenceItem(**e) for e in _demo_evidence],
+            feedback=[_DEMO_FEEDBACK],
+        )
+
+    profile = user.player_profile
+    game = "rocket_league"
+    if profile is not None and profile.games:
+        game = profile.games[0].specialisation.slug.replace("-", "_")
     return PassportResponse(
-        player=PlayerSummary(id=str(player_id), name="Demo Player", game="rocket_league"),
-        rank="Diamond II",
+        player=PlayerSummary(id=str(user.id), name=display_name_from_email(user.email), game=game),
+        rank=(profile.skill_level if profile and profile.skill_level else "Unranked"),
         replayStats=ReplayStats(**stats),
-        evidence=[EvidenceItem(**e) for e in _demo_evidence],
-        feedback=[
-            FeedbackEntry(
-                sessionId="session-001",
-                coachName="Dani K.",
-                date="2026-11-12T14:00:00Z",
-                strengths=["Strong aerial control", "Good boost awareness"],
-                focusAreas=["Shadow defence positioning", "Rotation recovery after boost pad"],
-                nextGoals=[
-                    "Practice 50/50 challenges in freeplay",
-                    "Review shadow defence replay clips",
-                ],
-            )
-        ],
+        evidence=_evidence_for(db, user.id),
+        feedback=_feedback_for(db, profile),
     )
+
+
+_DEMO_FEEDBACK = FeedbackEntry(
+    sessionId="session-001",
+    coachName="Dani K.",
+    date="2026-11-12T14:00:00Z",
+    strengths=["Strong aerial control", "Good boost awareness"],
+    focusAreas=["Shadow defence positioning", "Rotation recovery after boost pad"],
+    nextGoals=[
+        "Practice 50/50 challenges in freeplay",
+        "Review shadow defence replay clips",
+    ],
+)
+
+
+def _evidence_for(db: Session, user_id: UUID) -> list[EvidenceItem]:
+    rows = db.scalars(
+        select(PlayerEvidence).where(PlayerEvidence.user_id == user_id).order_by(PlayerEvidence.created_at)
+    ).all()
+    return [
+        EvidenceItem(
+            id=str(r.id),
+            type=r.evidence_type,
+            url=r.url,
+            addedAt=(r.created_at if r.created_at.tzinfo else r.created_at.replace(tzinfo=timezone.utc)).isoformat(),
+        )
+        for r in rows
+    ]
+
+
+def _feedback_for(db: Session, profile: PlayerProfile | None) -> list[FeedbackEntry]:
+    """Structured feedback from the coach notes on this player's completed sessions."""
+    if profile is None:
+        return []
+    from ai.router import _fallback_feedback  # deterministic parser, no LLM call
+
+    sessions = db.scalars(
+        select(CoachingSession)
+        .join(CoachingSession.booking)
+        .join(Booking.order)
+        .join(Order.quotation)
+        .options(selectinload(CoachingSession.booking).selectinload(Booking.order)
+                 .selectinload(Order.quotation).selectinload(Quotation.coach_profile)
+                 .selectinload(CoachProfile.user))
+        .where(
+            Quotation.player_profile_id == profile.id,
+            CoachingSession.status == SessionStatus.COMPLETED,
+            CoachingSession.coach_notes.is_not(None),
+        )
+        .order_by(CoachingSession.starts_at.desc())
+        .limit(10)
+    ).all()
+    entries = []
+    for s in sessions:
+        parsed = _fallback_feedback(s.coach_notes or "")
+        entries.append(FeedbackEntry(
+            sessionId=str(s.id),
+            coachName=display_name_from_email(s.booking.order.quotation.coach_profile.user.email),
+            date=(s.starts_at if s.starts_at.tzinfo else s.starts_at.replace(tzinfo=timezone.utc)).isoformat(),
+            strengths=parsed["strengths"],
+            focusAreas=parsed["focusAreas"],
+            nextGoals=parsed["nextGoals"],
+        ))
+    return entries
 
 
 # ---------------------------------------------------------------------------
@@ -155,12 +227,10 @@ def add_evidence(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"type must be one of: {', '.join(sorted(_ALLOWED_EVIDENCE_TYPES))}",
         )
-    new_item = {
-        "id": f"ev-{len(_demo_evidence) + 1:03d}",
-        "type": payload.type,
-        "url": payload.url,
-        "addedAt": datetime.now(timezone.utc).isoformat(),
-    }
-    _demo_evidence.append(new_item)
-    # TODO: persist to DB instead of in-memory list
-    return [EvidenceItem(**e) for e in _demo_evidence]
+    if not payload.url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=422, detail="url must start with http:// or https://")
+    if player_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only add evidence to your own passport")
+    db.add(PlayerEvidence(user_id=current_user.id, evidence_type=payload.type, url=payload.url))
+    db.commit()
+    return _evidence_for(db, current_user.id)
