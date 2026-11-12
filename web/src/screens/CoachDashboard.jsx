@@ -1,20 +1,28 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { getCoachDashboard } from '../api.js'
+import { getUser } from '../auth.js'
 import SectionCard from '../components/SectionCard.jsx'
 import StatusPill from '../components/StatusPill.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
 
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+
 export default function CoachDashboard() {
-  const persona = localStorage.getItem('c2e_persona') || 'gamer'
+  // In mock mode use the persona switcher; in live mode use the real JWT user
+  const user = getUser()
+  const isCoach = USE_MOCK
+    ? (localStorage.getItem('c2e_persona') || 'gamer') === 'coach'
+    : user?.role === 'COACH'
+
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (persona !== 'coach') { setLoading(false); return }
+    if (!isCoach) { setLoading(false); return }
     load()
   }, [])
 
@@ -22,7 +30,7 @@ export default function CoachDashboard() {
     setLoading(true)
     setError('')
     try {
-      const d = await getCoachDashboard('coach-001')
+      const d = await getCoachDashboard()
       setData(d)
     } catch {
       setError('Could not load dashboard. Try refreshing the page.')
@@ -31,11 +39,11 @@ export default function CoachDashboard() {
     }
   }
 
-  if (persona !== 'coach') {
+  if (!isCoach) {
     return (
       <EmptyState
-        heading="Switch to the coach persona to view this dashboard."
-        subtext="Use the demo persona switcher in the header."
+        heading="This dashboard is for coaches only."
+        subtext="Log in with a coach account to view your dashboard."
       />
     )
   }

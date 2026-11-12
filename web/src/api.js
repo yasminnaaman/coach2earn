@@ -232,12 +232,13 @@ export async function disputeSession(id) {
 
 // ─── Coach dashboard ─────────────────────────────────────────────────────────
 
-export async function getCoachDashboard(id) {
+export async function getCoachDashboard() {
   if (USE_MOCK) {
     await delay()
     return seed.coachDashboard
   }
-  return request('GET', `/coaches/${id}/dashboard`)
+  // JWT token identifies the coach — no ID needed
+  return request('GET', '/coaches/me/dashboard')
 }
 
 // ─── Skills Passport ─────────────────────────────────────────────────────────
