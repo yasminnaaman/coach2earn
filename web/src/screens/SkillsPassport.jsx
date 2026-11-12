@@ -4,6 +4,7 @@ import { getPassport, addEvidence } from '../api.js'
 import SectionCard from '../components/SectionCard.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
+import EmptyState from '../components/EmptyState.jsx'
 
 const TYPE_COLOURS = {
   ballchasing_replay: 'bg-blue-100 text-blue-700',
@@ -46,9 +47,14 @@ export default function SkillsPassport() {
 
   if (loading) return <LoadingSpinner />
   if (error) return <div className="mt-4"><ErrorMessage message={error} /></div>
-  if (!passport) return null
+  if (!passport) return (
+    <EmptyState
+      heading="No passport found for this player."
+      subtext="Stats and evidence will appear here once the player profile is set up."
+    />
+  )
 
-  const { player, rank, replayStats, evidence, feedback } = passport
+  const { player, rank, replayStats, evidence = [], feedback = [] } = passport
 
   return (
     <div className="flex flex-col gap-6">

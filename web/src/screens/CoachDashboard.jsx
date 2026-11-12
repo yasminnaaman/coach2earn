@@ -1,20 +1,28 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { getCoachDashboard } from '../api.js'
+import { getUser } from '../auth.js'
 import SectionCard from '../components/SectionCard.jsx'
 import StatusPill from '../components/StatusPill.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
 
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+
 export default function CoachDashboard() {
-  const persona = localStorage.getItem('c2e_persona') || 'gamer'
+  // In mock mode use the persona switcher; in live mode use the real JWT user
+  const user = getUser()
+  const isCoach = USE_MOCK
+    ? (localStorage.getItem('c2e_persona') || 'gamer') === 'coach'
+    : user?.role === 'COACH'
+
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (persona !== 'coach') { setLoading(false); return }
+    if (!isCoach) { setLoading(false); return }
     load()
   }, [])
 
@@ -22,7 +30,7 @@ export default function CoachDashboard() {
     setLoading(true)
     setError('')
     try {
-      const d = await getCoachDashboard('coach-001')
+      const d = await getCoachDashboard()
       setData(d)
     } catch {
       setError('Could not load dashboard. Try refreshing the page.')
@@ -31,11 +39,11 @@ export default function CoachDashboard() {
     }
   }
 
-  if (persona !== 'coach') {
+  if (!isCoach) {
     return (
       <EmptyState
-        heading="Switch to the coach persona to view this dashboard."
-        subtext="Use the demo persona switcher in the header."
+        heading="This dashboard is for coaches only."
+        subtext="Log in with a coach account to view your dashboard."
       />
     )
   }
@@ -47,6 +55,11 @@ export default function CoachDashboard() {
   const bonusPct = data.bonusPct || 0
   const progressPct = Math.min((data.points / 400) * 100, 100)
   const projectedBonus = (2000 * bonusPct / 100).toFixed(0)
+  // Mock mode keeps the demo session; live mode opens the next open session
+  // from the real activity feed (or the most recent one).
+  const startSessionId = USE_MOCK
+    ? 's-3'
+    : (data.activityFeed?.find((i) => i.status !== 'Confirmed') || data.activityFeed?.[0])?.sessionId
 
   return (
     <div>
@@ -56,10 +69,12 @@ export default function CoachDashboard() {
           <h1 className="text-2xl font-semibold text-gray-900">{data.teamName}</h1>
           <p className="text-sm text-gray-500">Coach dashboard</p>
         </div>
-        <Link to="/sessions/s-3"
-          className="rounded-lg bg-sky-600 px-5 py-2 text-sm font-medium text-white hover:bg-sky-700 text-center">
-          Start session
-        </Link>
+        {startSessionId && (
+          <Link to={`/sessions/${startSessionId}`}
+            className="rounded-lg bg-sky-600 px-5 py-2 text-sm font-medium text-white hover:bg-sky-700 text-center">
+            Start session
+          </Link>
+        )}
       </div>
 
       {/* Metric cards */}

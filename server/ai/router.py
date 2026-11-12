@@ -12,6 +12,7 @@ from app.db.session import get_db
 from app.models.commerce import CoachingPackage, CoachingSession
 from app.models.enums import VerificationStatus
 from app.models.identity import CoachProfile, CoachSpecialisation, Specialisation, User
+from app.services.profiles import display_name_from_email
 
 from .llm import generate_reason, organise_evidence, structure_notes
 from .scoring import fallback_reason, score_coach
@@ -168,17 +169,30 @@ def match_coaches(
         # Collect game/role slugs from specialisations
         for spec_link in profile.specialisations:
             spec: Specialisation = spec_link.specialisation
-            game_slug = spec.slug if spec.category.value == "game" else ""
-            role_slug = ""  # roles not yet in schema — use slug as role approximation
+            if spec.category.value != "game":
+                continue
+            # Catalog slugs use hyphens ("rocket-league"); the frontend sends
+            # underscores ("rocket_league"). Normalise so they compare equal.
+            game_slug = spec.slug.replace("-", "_")
+            # Roles are not in the schema yet, so a coach cannot be ruled out
+            # by role — treat the requested role as matching.
             # NOTE: when Hope adds a role field to Specialisation, update this
+            role_slug = payload.role
 
-            # Cheapest active package price in USD
+            # Cheapest active per-session price in USD (budget is per session)
             usd_packages = [
-                float(p.price_amount)
+                float(p.price_amount) / p.session_limit
                 for p in profile.packages
-                if p.is_active and p.currency == "USD"
+                if p.is_active and p.currency == "USD" and p.session_limit
             ]
-            cheapest = min(usd_packages) if usd_packages else 0.0
+            if not usd_packages:
+                # No USD package — fall back to the cheapest in any currency
+                usd_packages = [
+                    float(p.price_amount) / p.session_limit
+                    for p in profile.packages
+                    if p.is_active and p.session_limit
+                ]
+            cheapest = round(min(usd_packages), 2) if usd_packages else 0.0
 
             # Endorsement count — Hope's model doesn't have an endorsements table yet
             # Using qualifications count as a proxy until endorsements are added
@@ -187,7 +201,7 @@ def match_coaches(
 
             coach_dict = _build_coach_dict(
                 profile=profile,
-                name=profile.user.email.split("@")[0],  # placeholder until name field added
+                name=display_name_from_email(profile.user.email),  # until a name field exists
                 game_slug=game_slug,
                 role_slug=role_slug,
                 endorsement_count=endorsement_count,

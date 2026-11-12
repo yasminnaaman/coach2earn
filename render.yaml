@@ -1,0 +1,51 @@
+services:
+  # ── Backend API ───────────────────────────────────────────────────────────────
+  - type: web
+    name: coach2earn-api
+    runtime: python
+    # build/start commands below run from server/ (deploy_setup.py, seed.py, app/)
+    rootDir: server
+    buildCommand: pip install -r requirements.txt && python deploy_setup.py && python seed.py
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.11"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: "https://coach2earn-web.onrender.com,http://localhost:5173"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: BALLCHASING_API_KEY
+        sync: false
+      - key: STARTGG_TOKEN
+        sync: false
+      - key: DEMO_MODE
+        value: "true"
+      # Re-run the idempotent seed (server/seed.py) on every boot so the demo
+      # data exists even if the dashboard build command skips `python seed.py`.
+      - key: SEED_ON_STARTUP
+        value: "true"
+
+  # ── Frontend static site ──────────────────────────────────────────────────────
+  - type: web
+    name: coach2earn-web
+    runtime: static
+    buildCommand: cd web && npm ci && npm run build
+    staticPublishPath: web/dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: "https://coach2earn.onrender.com"
+      - key: VITE_USE_MOCK
+        value: "false"

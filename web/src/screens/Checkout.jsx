@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { getCoach, createQuote, createOrder, captureOrder } from '../api.js'
+import { getCoachForPackage, createQuote, createOrder, captureOrder } from '../api.js'
 import VerifiedBadge from '../components/VerifiedBadge.jsx'
 import SectionCard from '../components/SectionCard.jsx'
 import RateLockCountdown from '../components/RateLockCountdown.jsx'
@@ -12,6 +12,12 @@ const METHODS = [
   { id: 'card', label: 'Card', note: '1 USD = 129.00 KES (est.)' },
   { id: 'paypal_balance', label: 'PayPal balance', note: 'No conversion needed' },
 ]
+
+// "$12.00" for USD, "GBP 12.00" otherwise
+function money(amount, currency = 'USD') {
+  const prefix = !currency || currency === 'USD' ? '$' : `${currency} `
+  return `${prefix}${Number(amount || 0).toFixed(2)}`
+}
 
 function CoachAvatar({ name }) {
   const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
@@ -39,8 +45,8 @@ export default function Checkout() {
   useEffect(() => {
     async function init() {
       try {
-        // coach-001 has pkg-001 — for mock we derive coachId from packageId mapping
-        const coachData = await getCoach('coach-001')
+        // Resolve the coach that owns this package (mock mode: coach-001)
+        const coachData = await getCoachForPackage(packageId)
         setCoach(coachData)
         const foundPkg = coachData.packages?.find((p) => p.id === packageId) || coachData.packages?.[0]
         setPkg(foundPkg)
@@ -88,7 +94,7 @@ export default function Checkout() {
     setPaying(true)
     setError('')
     try {
-      const order = await createOrder({ quoteId: quote?.id })
+      const order = await createOrder({ quoteId: quote?.id, paymentMethod: method })
       // In mock mode approvalUrl is the confirmation page directly
       window.location.href = order.approvalUrl
     } catch (e) {
@@ -130,16 +136,16 @@ export default function Checkout() {
           {pkg && (
             <div className="flex flex-col gap-1.5 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">{pkg.sessions} sessions × ${pkg.pricePerSession.toFixed(2)}</span>
-                <span>${pkg.subtotal.toFixed(2)}</span>
+                <span className="text-gray-600">{pkg.sessions} sessions × {money(pkg.pricePerSession, pkg.currency)}</span>
+                <span>{money(pkg.subtotal, pkg.currency)}</span>
               </div>
               <div className="flex justify-between text-gray-500">
                 <span>Platform fee ({pkg.platformFeePct}%)</span>
-                <span>${pkg.platformFee.toFixed(2)}</span>
+                <span>{money(pkg.platformFee, pkg.currency)}</span>
               </div>
               <div className="flex justify-between border-t border-gray-100 pt-2 font-semibold">
                 <span>Total</span>
-                <span>${pkg.total.toFixed(2)} USD</span>
+                <span>{money(pkg.total, pkg.currency)} {pkg.currency || 'USD'}</span>
               </div>
             </div>
           )}

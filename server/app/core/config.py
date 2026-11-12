@@ -3,7 +3,7 @@
 from decimal import Decimal
 from functools import lru_cache
 
-from pydantic import SecretStr, field_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     jwt_secret_key: SecretStr | None = None
     access_token_expire_minutes: int = 30
     jwt_issuer: str = "coach2earn"
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    cors_origins: str = "https://coach2earn-web.onrender.com,http://localhost:5173,http://localhost:3000"
 
     # PayPal — Brian owns these. sandbox|mock. Never commit real secrets.
     paypal_mode: str = "mock"
@@ -33,6 +33,21 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def validate_production_requirements(self) -> "Settings":
+        """Fail loudly on startup when required production vars are missing."""
+        if self.environment == "production":
+            if "localhost" in self.database_url or "127.0.0.1" in self.database_url:
+                raise ValueError(
+                    "DATABASE_URL must be set to a hosted database in production "
+                    "(current value still points at localhost)"
+                )
+            if self.jwt_secret_key is None:
+                raise ValueError(
+                    "JWT_SECRET_KEY must be set in production"
+                )
+        return self
 
     @field_validator("jwt_secret_key")
     @classmethod

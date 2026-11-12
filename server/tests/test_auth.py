@@ -232,7 +232,7 @@ def test_role_dependency_protects_endpoint(api_client, db_engine, db_session) ->
             session.close()
 
     protected_app.dependency_overrides[get_db] = override_db
-    with TestClient(protected_app) as protected_client:
+    with TestClient(protected_app, backend_options={"use_uvloop": True}) as protected_client:
         response = protected_client.get(
             "/coach-only", headers={"Authorization": f"Bearer {token}"}
         )
@@ -551,7 +551,7 @@ def test_minor_player_access_is_blocked_until_consent_is_verified(api_client, db
             session.close()
 
     protected_app.dependency_overrides[get_db] = override_db
-    with TestClient(protected_app) as client:
+    with TestClient(protected_app, backend_options={"use_uvloop": True}) as client:
         response = client.get(
             "/player-only",
             headers={"Authorization": f"Bearer {create_access_token(minor.id)}"},
