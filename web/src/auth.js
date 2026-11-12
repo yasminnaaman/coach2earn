@@ -15,7 +15,9 @@ export function setToken(token) {
 export function getUser() {
   try {
     const raw = localStorage.getItem(USER_KEY)
-    return raw ? JSON.parse(raw) : null
+    const user = raw ? JSON.parse(raw) : null
+    // The API sends lowercase roles ("coach"); the UI compares "COACH".
+    return user ? { ...user, role: String(user.role || '').toUpperCase() } : null
   } catch {
     return null
   }

@@ -18,6 +18,12 @@ const TYPE_COLOURS = {
   video: 'bg-amber-100 text-amber-700',
 }
 
+// "$12.00" for USD, "GBP 12.00" otherwise
+function money(amount, currency = 'USD') {
+  const prefix = !currency || currency === 'USD' ? '$' : `${currency} `
+  return `${prefix}${Number(amount || 0).toFixed(2)}`
+}
+
 function CoachAvatar({ name }) {
   const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
   return (
@@ -109,20 +115,22 @@ export default function CoachPage() {
         <SectionCard title="Package">
           <div className="flex flex-col gap-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">{pkg.sessions} sessions × ${pkg.pricePerSession.toFixed(2)}</span>
-              <span className="font-medium">${pkg.subtotal.toFixed(2)}</span>
+              <span className="text-gray-600">{pkg.sessions} sessions × {money(pkg.pricePerSession, pkg.currency)}</span>
+              <span className="font-medium">{money(pkg.subtotal, pkg.currency)}</span>
             </div>
             <div className="flex justify-between text-gray-500">
               <span>Platform fee ({pkg.platformFeePct}%)</span>
-              <span>${pkg.platformFee.toFixed(2)}</span>
+              <span>{money(pkg.platformFee, pkg.currency)}</span>
             </div>
             <div className="flex justify-between border-t border-gray-100 pt-2 font-semibold">
               <span>Total</span>
-              <span>${pkg.total.toFixed(2)} USD</span>
+              <span>{money(pkg.total, pkg.currency)} {pkg.currency || 'USD'}</span>
             </div>
-            <p className="mt-1 text-xs text-gray-400">
-              ≈ KES {(pkg.total * 129).toLocaleString()} at 1 USD = 129.00 KES (est.)
-            </p>
+            {(!pkg.currency || pkg.currency === 'USD') && (
+              <p className="mt-1 text-xs text-gray-400">
+                ≈ KES {(pkg.total * 129).toLocaleString()} at 1 USD = 129.00 KES (est.)
+              </p>
+            )}
           </div>
           {/* Bonus terms */}
           <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">

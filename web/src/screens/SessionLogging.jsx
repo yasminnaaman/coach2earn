@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { startSession, endSession, confirmSession, disputeSession } from '../api.js'
+import { getSession, startSession, endSession, confirmSession, disputeSession } from '../api.js'
+import { getUser } from '../auth.js'
+import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import SectionCard from '../components/SectionCard.jsx'
 import StatusPill from '../components/StatusPill.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
@@ -15,14 +17,30 @@ const DEMO_SESSIONS = {
   'new': { id: 'new', label: 'New session', status: 'Scheduled', date: null, proposedHours: null },
 }
 
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+const ROLE_PERSONA = { COACH: 'coach', ADMIN: 'team_admin' }
+
 export default function SessionLogging() {
   const { id } = useParams()
-  const persona = localStorage.getItem('c2e_persona') || 'gamer'
-  const [session, setSession] = useState(DEMO_SESSIONS[id] || DEMO_SESSIONS['s-3'])
+  // Mock mode uses the demo persona switcher; live mode uses the JWT user role.
+  const persona = USE_MOCK
+    ? localStorage.getItem('c2e_persona') || 'gamer'
+    : ROLE_PERSONA[getUser()?.role] || 'gamer'
+  const [session, setSession] = useState(USE_MOCK ? DEMO_SESSIONS[id] || DEMO_SESSIONS['s-3'] : null)
+  const [loadingSession, setLoadingSession] = useState(!USE_MOCK)
   const [proposedHours, setProposedHours] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    if (USE_MOCK) return
+    setLoadingSession(true)
+    getSession(id)
+      .then(setSession)
+      .catch(() => setError('Could not load this session. Open it from your dashboard.'))
+      .finally(() => setLoadingSession(false))
+  }, [id])
 
   async function run(fn, optimisticStatus) {
     setLoading(true); setError(''); setMessage('')
@@ -39,8 +57,13 @@ export default function SessionLogging() {
   }
 
   if (persona !== 'coach' && persona !== 'team_admin') {
-    return <EmptyState heading="Switch to the coach or team admin persona to manage sessions." subtext="Use the demo persona switcher in the header." />
+    return USE_MOCK
+      ? <EmptyState heading="Switch to the coach or team admin persona to manage sessions." subtext="Use the demo persona switcher in the header." />
+      : <EmptyState heading="Sessions are managed by coaches." subtext="Log in with a coach account to manage sessions." />
   }
+
+  if (loadingSession) return <LoadingSpinner />
+  if (!session) return <div className="mt-4"><ErrorMessage message={error || 'Session not found.'} /></div>
 
   return (
     <div>

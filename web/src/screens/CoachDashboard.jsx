@@ -47,6 +47,11 @@ export default function CoachDashboard() {
   const bonusPct = data.bonusPct || 0
   const progressPct = Math.min((data.points / 400) * 100, 100)
   const projectedBonus = (2000 * bonusPct / 100).toFixed(0)
+  // Mock mode keeps the demo session; live mode opens the next open session
+  // from the real activity feed (or the most recent one).
+  const startSessionId = USE_MOCK
+    ? 's-3'
+    : (data.activityFeed?.find((i) => i.status !== 'Confirmed') || data.activityFeed?.[0])?.sessionId
 
   return (
     <div>
@@ -56,10 +61,12 @@ export default function CoachDashboard() {
           <h1 className="text-2xl font-semibold text-gray-900">{data.teamName}</h1>
           <p className="text-sm text-gray-500">Coach dashboard</p>
         </div>
-        <Link to="/sessions/s-3"
-          className="rounded-lg bg-sky-600 px-5 py-2 text-sm font-medium text-white hover:bg-sky-700 text-center">
-          Start session
-        </Link>
+        {startSessionId && (
+          <Link to={`/sessions/${startSessionId}`}
+            className="rounded-lg bg-sky-600 px-5 py-2 text-sm font-medium text-white hover:bg-sky-700 text-center">
+            Start session
+          </Link>
+        )}
       </div>
 
       {/* Metric cards */}

@@ -12,6 +12,7 @@ Sections
 6.  Orders → Bookings → Sessions  (completed history for 2 players)
 7.  Points transactions     (earned points from completed sessions)
 8.  Coach earnings          (net earnings from completed orders)
+9.  Admin reviewer          (1 admin + 3 pending coach qualifications)
 
 Idempotency
 ───────────
@@ -66,6 +67,7 @@ from app.models.enums import (                               # noqa: E402
 from app.models.finance import CoachEarning                  # noqa: E402
 from app.models.identity import (                            # noqa: E402
     CoachProfile,
+    CoachQualification,
     CoachSpecialisation,
     CoachVerification,
     PlayerGame,
@@ -952,6 +954,80 @@ def _seed_order_history(db: Session, rl_spec: Specialisation) -> None:
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Section 9 — Admin reviewer + pending qualifications (Review Queue screen)
+# ─────────────────────────────────────────────────────────────────────────────
+
+ADMIN_EMAIL = "admin.review@coach2earn.io"
+ADMIN_PASSWORD = "AdminReview!2024"
+
+# (coach email, title, issuing organisation, evidence url)
+PENDING_QUALIFICATIONS: list[tuple[str, str, str, str]] = [
+    (
+        "alex.mercer@coach2earn.io",
+        "RLCS Season X — North America regional participant",
+        "Psyonix / RLCS",
+        "https://liquipedia.net/rocketleague/RLCS/Season_X",
+    ),
+    (
+        "priya.sharma@coach2earn.io",
+        "University esports — Rocket League team captain (3 seasons)",
+        "National University Esports League",
+        "https://start.gg/tournament/nuel-rocket-league",
+    ),
+    (
+        "carlos.vidal@coach2earn.io",
+        "Sports performance analysis certificate",
+        "Institute of Performance Analysis",
+        "https://ballchasing.com/player/steam/demo-carlos",
+    ),
+]
+
+
+def _seed_admin(db: Session) -> bool:
+    if _get_user(db, ADMIN_EMAIL) is not None:
+        print(f"  skip  {ADMIN_EMAIL}")
+        return False
+    db.add(User(
+        id=uuid4(),
+        email=ADMIN_EMAIL,
+        password_hash=hash_password(ADMIN_PASSWORD),
+        role=UserRole.ADMIN,
+        account_status=AccountStatus.ACTIVE,
+        date_of_birth=date(1988, 3, 2),
+    ))
+    db.commit()
+    print(f"  ✓  admin   {ADMIN_EMAIL}")
+    return True
+
+
+def _seed_pending_qualifications(db: Session) -> None:
+    for coach_email, title, org, url in PENDING_QUALIFICATIONS:
+        profile = _get_coach_profile(db, coach_email)
+        if profile is None:
+            print(f"  ✗  coach {coach_email} missing — qualification skipped")
+            continue
+        exists = db.scalar(
+            select(CoachQualification).where(
+                CoachQualification.coach_profile_id == profile.id,
+                CoachQualification.title == title,
+            )
+        )
+        if exists is not None:
+            print(f"  skip  qualification '{title}'")
+            continue
+        db.add(CoachQualification(
+            id=uuid4(),
+            coach_profile_id=profile.id,
+            title=title,
+            issuing_organisation=org,
+            evidence_url=url,
+            verification_status=VerificationStatus.PENDING,
+        ))
+        db.commit()
+        print(f"  ✓  qualification '{title}'  (pending review)")
+
+
 def main() -> int:
     # ── 1. Specialisation catalog ─────────────────────────────────────────────
     print("── 1. Specialisation catalog ────────────────────────────────────────")
@@ -1012,6 +1088,14 @@ def main() -> int:
         spec = db.get(Specialisation, rl_spec.id)
         _seed_order_history(db, spec)
 
+    # ── 9. Admin reviewer + pending qualifications ────────────────────────────
+    print()
+    print("── 9. Admin reviewer / pending qualifications ───────────────────────")
+    with SessionLocal() as db:
+        _seed_admin(db)
+    with SessionLocal() as db:
+        _seed_pending_qualifications(db)
+
     # ── Summary ───────────────────────────────────────────────────────────────
     print()
     print("═" * 62)
@@ -1035,6 +1119,11 @@ def main() -> int:
     print(f"  Email    : {tp.email}")
     print(f"  Password : {tp.password}")
     print(f"  Role     : player | Rank: {tp.skill_level}")
+    print()
+    print("  TEST ADMIN (REVIEWER) CREDENTIALS")
+    print("─" * 62)
+    print(f"  Email    : {ADMIN_EMAIL}")
+    print(f"  Password : {ADMIN_PASSWORD}")
     print("═" * 62)
     return 0
 
