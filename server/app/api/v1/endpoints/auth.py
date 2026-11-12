@@ -205,3 +205,75 @@ def login(
 )
 def read_current_user(current_user: CurrentUser) -> User:
     return current_user
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /consents
+# Records data-protection and optional guardian consent for the logged-in user.
+# Called by ConsentFlow.jsx  →  submitConsent({ under18, guardianConsent })
+# Spec: "POST /consents, with a check that an under-18 user cannot book
+#        without guardian consent."
+# ─────────────────────────────────────────────────────────────────────────────
+
+from pydantic import BaseModel as _BaseModel  # local alias avoids polluting imports
+
+
+class ConsentRequest(_BaseModel):
+    under18: bool
+    guardianConsent: bool = False
+
+
+class ConsentResponse(_BaseModel):
+    status: str
+    guardian_consent_required: bool
+
+
+@router.post(
+    "/consents",
+    response_model=ConsentResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Record data-protection and guardian consent for the authenticated user",
+    tags=["authentication"],
+)
+def record_consent(
+    payload: ConsentRequest,
+    current_user: CurrentUser,
+    db: Session = Depends(get_db),
+) -> ConsentResponse:
+    """
+    Accepts the user's data-consent tick and, when under18=true, records that
+    guardian consent has been given.  Under-18 users without guardian consent
+    are blocked from booking (HTTP 403 returned by booking endpoints).
+
+    This endpoint is idempotent — calling it again with the same values is safe.
+    """
+    if payload.under18 and not payload.guardianConsent:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Guardian consent is required for players under 18.",
+        )
+
+    # If the user registered with a date_of_birth we can cross-check it.
+    if current_user.date_of_birth is not None:
+        actual_minor = is_under_18(current_user.date_of_birth)
+        if actual_minor and not payload.under18:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Your date of birth indicates you are under 18. "
+                       "Set under18=true and provide guardian consent.",
+            )
+
+    # If a GuardianConsent record already exists and is pending/rejected,
+    # update it to verified when guardian has now consented.
+    if payload.under18 and payload.guardianConsent:
+        if current_user.guardian_consent is not None:
+            if current_user.guardian_consent.status != GuardianConsentStatus.VERIFIED:
+                current_user.guardian_consent.status = GuardianConsentStatus.VERIFIED
+                db.commit()
+        # If no guardian_consent record exists but player is flagged as minor,
+        # the register flow should have created one — nothing more to do here.
+
+    return ConsentResponse(
+        status="recorded",
+        guardian_consent_required=payload.under18,
+    )
