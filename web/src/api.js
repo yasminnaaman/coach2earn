@@ -101,10 +101,18 @@ export async function getCoaches(filters = {}) {
 export async function matchCoaches(body) {
   if (USE_MOCK) {
     await delay()
-    return seed.coaches
-      .filter((c) => c.game === body.game && c.role === body.role)
-      .filter((c) => !body.budgetUsd || c.priceUsd <= body.budgetUsd)
-      .sort((a, b) => b.score - a.score)
+    let list = [...seed.coaches]
+    // Only filter by game if one was selected
+    if (body.game) list = list.filter((c) => c.game === body.game)
+    // Only filter by role if one was selected
+    if (body.role) list = list.filter((c) => c.role === body.role)
+    // Only filter by budget if one was provided and is meaningful
+    if (body.budgetUsd && body.budgetUsd < 999) {
+      list = list.filter((c) => c.priceUsd <= body.budgetUsd)
+    }
+    // If nothing matches, return all coaches rather than an empty list
+    if (list.length === 0) list = [...seed.coaches]
+    return list.sort((a, b) => b.score - a.score)
   }
   return request('POST', '/ai/match', body)
 }
@@ -158,7 +166,26 @@ export async function captureOrder(orderId) {
     await delay()
     return seed.orderCapture
   }
-  return request('POST', `/payments/orders/${orderId}/capture`)
+  // Brian's response is snake_case — remap to camelCase for all screens
+  const raw = await request('POST', `/payments/orders/${orderId}/capture`)
+  return {
+    orderId: raw.order_id ?? raw.orderId,
+    receiptRef: raw.receipt_ref ?? raw.receiptRef,
+    coachName: raw.coach_name ?? raw.coachName,
+    paidWith: raw.paid_with ?? raw.paidWith,
+    packageLabel: raw.package_label ?? raw.packageLabel,
+    packageSubtotal: raw.package_subtotal ?? raw.packageSubtotal,
+    platformFee: raw.platform_fee ?? raw.platformFee,
+    totalPaidKes: raw.total_paid_kes ?? raw.totalPaidKes,
+    totalPaidUsd: raw.total_paid_usd ?? raw.totalPaidUsd,
+    currency: raw.currency,
+    rateUsed: raw.rate_used ?? raw.rateUsed,
+    bookedSessions: (raw.booked_sessions ?? raw.bookedSessions ?? []).map((s) => ({
+      id: s.id,
+      label: s.label,
+      startsAt: s.starts_at ?? s.startsAt ?? null,
+    })),
+  }
 }
 
 // ─── Sessions ────────────────────────────────────────────────────────────────

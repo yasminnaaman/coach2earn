@@ -16,6 +16,7 @@ import SessionLogging from './screens/SessionLogging.jsx'
 import SkillsPassport from './screens/SkillsPassport.jsx'
 import ConsentFlow from './screens/ConsentFlow.jsx'
 import ReviewQueue from './screens/ReviewQueue.jsx'
+import TrustPage from './screens/TrustPage.jsx'
 
 // ─── Protected route wrapper ──────────────────────────────────────────────────
 // Redirects to /login if the user is not logged in.
@@ -99,6 +100,8 @@ function Footer() {
     <footer className="mt-16 border-t border-gray-200 px-4 py-6 text-center text-xs text-gray-400">
       Players under 18 require parental or guardian consent. ·{' '}
       <Link to="/consent" className="underline">Consent settings</Link>
+      {' · '}
+      <Link to="/trust" className="underline">Trust and compliance</Link>
     </footer>
   )
 }
@@ -129,6 +132,7 @@ export default function App() {
             <Route path="/coaches" element={<Discover />} />
             <Route path="/coaches/:id" element={<CoachPage />} />
             <Route path="/consent" element={<ConsentFlow />} />
+            <Route path="/trust" element={<TrustPage />} />
 
             {/* Routes that need auth in production, open in mock */}
             <Route path="/checkout/:packageId" element={

@@ -125,10 +125,11 @@ export const orderCapture = {
   totalPaidUsd: 162.0,
   currency: 'KES',
   rateUsed: '1 USD = 129.00 KES (est.)',
+  // starts_at is always null at capture time — sessions are scheduled after booking
   bookedSessions: [
-    { id: 's-1', label: 'Gameplay assessment', startsAt: '2026-11-12T14:00:00Z' },
-    { id: 's-2', label: 'Rotations and positioning', startsAt: '2026-11-14T14:00:00Z' },
-    { id: 's-3', label: 'Team comms review', startsAt: '2026-11-19T14:00:00Z' },
+    { id: 's-1', label: 'Gameplay assessment', startsAt: null },
+    { id: 's-2', label: 'Rotations and positioning', startsAt: null },
+    { id: 's-3', label: 'Team comms review', startsAt: null },
     { id: 's-4', label: null, startsAt: null },
     { id: 's-5', label: null, startsAt: null },
   ],

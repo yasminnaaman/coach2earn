@@ -165,7 +165,7 @@ export default function Register({ onLogin }) {
           <input type="checkbox" required className="mt-0.5" />
           <span className="text-gray-700">
             I agree to how my data is collected and used.{' '}
-            <a href="#" className="text-sky-600 underline">View policy</a>
+            <Link to="/trust" className="text-sky-600 underline">View policy</Link>
           </span>
         </label>
 

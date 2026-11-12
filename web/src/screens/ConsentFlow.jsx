@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { submitConsent } from '../api.js'
 import ErrorMessage from '../components/ErrorMessage.jsx'
 
@@ -71,7 +71,7 @@ export default function ConsentFlow() {
               onChange={(e) => setDataConsent(e.target.checked)} className="mt-0.5" />
             <span className="text-gray-700">
               I agree to how my data is collected and used.{' '}
-              <a href="#" className="text-sky-600 underline">View policy</a>
+              <Link to="/trust" className="text-sky-600 underline">View policy</Link>
             </span>
           </label>
         </div>
