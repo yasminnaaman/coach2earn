@@ -46,9 +46,14 @@ export default function SkillsPassport() {
 
   if (loading) return <LoadingSpinner />
   if (error) return <div className="mt-4"><ErrorMessage message={error} /></div>
-  if (!passport) return null
+  if (!passport) return (
+    <EmptyState
+      heading="No passport found for this player."
+      subtext="Stats and evidence will appear here once the player profile is set up."
+    />
+  )
 
-  const { player, rank, replayStats, evidence, feedback } = passport
+  const { player, rank, replayStats, evidence = [], feedback = [] } = passport
 
   return (
     <div className="flex flex-col gap-6">

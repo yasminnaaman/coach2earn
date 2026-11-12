@@ -51,7 +51,13 @@ function Header({ user, onLogout }) {
               {user.role === 'ADMIN' && (
                 <Link to="/review" className="text-gray-600 hover:text-gray-900">Review queue</Link>
               )}
-              <Link to="/passport/player-001" className="text-gray-600 hover:text-gray-900">Passport</Link>
+              {/* Use real user ID in live mode, fall back to demo ID in mock mode */}
+              <Link
+                to={`/passport/${user.id || 'player-001'}`}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                My passport
+              </Link>
               <span className="text-gray-400">|</span>
               <span className="text-gray-700">{user.email}</span>
               <button
